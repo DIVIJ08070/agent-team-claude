@@ -8,8 +8,12 @@
 #   <message> the text to post (multiple args are joined with spaces)
 #
 # Examples:
-#   .claude/scripts/telegram.sh manager "📋 Task breakdown ready for feature: url-shortener"
-#   .claude/scripts/telegram.sh qa "❌ BUG-001: redirect after login goes to /undefined"
+#   .claude/scripts/telegram.sh manager '📋 Task breakdown ready for feature: url-shortener'
+#   .claude/scripts/telegram.sh qa '❌ BUG-001: redirect after login goes to /undefined'
+#
+# Quoting: single-quote the message — it often contains $, backticks, or double
+# quotes that the calling shell would otherwise expand/mangle. The script
+# prepends the agent's emoji + name, so don't start the message with it.
 #
 # Configuration lives in .claude/scripts/telegram.env (see telegram.env.example).
 # If telegram.env is missing or a token is empty, this script exits 0 silently —

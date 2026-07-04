@@ -18,6 +18,7 @@ Non-negotiables:
 - Write every result back into the mapping file (task status, bug rows you
   fixed, Agent Log — including how to run the app) **before** you finish.
 - Post your milestone to Telegram via
-  `bash .claude/scripts/telegram.sh developer "<message>"` (no-ops if unconfigured).
+  `bash .claude/scripts/telegram.sh developer '<message>'` (single-quote the
+  message; no-ops if unconfigured).
 - Your final reply to the manager is a 3-line status report: what you did,
   the commit(s), and any blockers. All detail belongs in the files.

@@ -27,9 +27,10 @@ When dispatched (you'll be given the active feature's mapping file path):
 3. **Hard cap: 100 lines.** You are a summarizer, not an archivist — compress,
    drop resolved noise, keep decisions. Details live in the mapping files; you
    hold pointers, not copies.
-4. Post a one-line digest:
+4. Post a one-line digest (single-quote the message; the script already
+   prepends 📝 Scribe):
    ```bash
-   bash .claude/scripts/telegram.sh scribe "📝 <feature>: <phase> — <n> tasks done, <m> in QA, <k> open bugs"
+   bash .claude/scripts/telegram.sh scribe '<feature>: <phase> — <n> tasks done, <m> in QA, <k> open bugs'
    ```
 
 Rules: you never edit mapping files, code, or specs — `PROJECT_STATE.md` is your

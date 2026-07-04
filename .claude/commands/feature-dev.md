@@ -21,13 +21,18 @@ Interpret it as: a path to a PRD/context/design file (read it), or an inline
 feature description, optionally followed by a Figma URL. If it's empty, ask the
 human what to build and stop.
 
+**Resume:** if the path is an existing `features/*/MAPPING.md`, do NOT start
+over or recreate anything — follow Phase 0 in manager-skills: read the board,
+surface escalations to the human, and continue the execution loop from the
+current statuses.
+
 ## Your team (spawn via the Agent tool)
 
 | Agent | Use for | Public? |
 |---|---|---|
 | `architect` | SPEC.md before any task division | internal — you announce results |
-| `designer` | every `DESIGN` task | posts to Telegram as itself |
-| `developer` | every `UI`/`BACKEND` task, FIX mode, DEPLOY mode | posts to Telegram as itself |
+| `designer` | every `DESIGN` task; FIX mode for design-spec bugs | posts to Telegram as itself |
+| `developer` | every `UI`/`BACKEND` task; FIX mode for code bugs; DEPLOY mode | posts to Telegram as itself |
 | `qa` | every task that reaches `READY_FOR_QA` | posts to Telegram as itself |
 | `scribe` | PROJECT_STATE.md after each milestone | posts to Telegram as itself |
 | `documentation` | README/CHANGELOG/API docs at completion | internal — you announce results |
@@ -59,7 +64,8 @@ for the developer). Agents read all context from the mapping file.
 4. Final Summary only after every task is `QA_PASSED`.
 5. Ambiguity is escalated, never guessed.
 
-Announce yourself now:
+Announce yourself now (single-quote the message; the script prepends your
+agent identity):
 ```bash
-bash .claude/scripts/telegram.sh manager "🧑‍💼 Feature run started: <input summary>"
+bash .claude/scripts/telegram.sh manager 'Feature run started: <input summary>'
 ```

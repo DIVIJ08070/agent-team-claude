@@ -1,16 +1,46 @@
 ---
 name: qa-ui-skills
-description: QA mode for UI tasks — run the app, capture Playwright screenshots at 375/768/1280 plus interaction states, compare against Figma (via Figma MCP) or the design spec, run a11y checks, and write an evidence-backed verdict into MAPPING.md.
+description: QA modes for design-side tasks — DESIGN spec review (verify DESIGN_SPEC.md against the PRD, no app needed) and UI verification (run the app, Playwright screenshots at 375/768/1280 plus states, compare against Figma via MCP or the design spec, a11y checks) — with evidence-backed verdicts written into MAPPING.md.
 user-invocable: false
 ---
 
-# QA Skills — UI Mode
+# QA Skills — DESIGN & UI Modes
 
-Use this mode when the task's **Type is `UI`** (or DESIGN specs need visual
-verification). Your job: prove the implemented UI matches the design source and
-the PRD's UI requirements — with screenshot evidence, not opinions.
+This file has two modes. Route by the task's **Type** column:
+`DESIGN` → spec-review mode (below). `UI` → UI mode (further down).
 
-## Workflow
+## DESIGN spec-review mode
+
+A DESIGN task is QA'd **before** any code exists — there is no app to run and
+no screenshots to take. You review the artifact itself: `DESIGN_SPEC.md`.
+
+1. **Context.** From the mapping file read your task row, the Design Handoff
+   section, `DESIGN_SPEC.md`, and the PRD's UI requirements. Log that QA started.
+2. **Review the spec against the PRD**, writing your findings as you go into
+   `features/<feature>/qa/design-review-<task>.md`:
+   - **Coverage:** every UI requirement in the PRD maps to a component/state in
+     the spec — walk them one by one. Missing state (error? disabled? empty?)
+     = a bug.
+   - **Exactness:** every color is a hex value, every size a number, all three
+     breakpoints (375/768/1280) specified. "TBD" or vague values = a bug.
+   - **Contrast:** compute the contrast ratio for each text-color/background
+     pair from the actual hex values; flag anything below 4.5:1 (3:1 for large
+     text).
+   - **Consistency:** tokens used in Layout/Components exist in the token
+     table; Figma frames listed in the Design Handoff are the ones the spec
+     cites.
+3. **Verdict.** Append a QA Verdicts row — Mode `DESIGN`, PASS/FAIL, evidence =
+   the review file. `PASS` → task `QA_PASSED`; `FAIL` → task `QA_FAILED` + one
+   Bugs row per problem (these route back to the **designer**). Log it, post to
+   Telegram.
+
+## UI mode
+
+Use this mode when the task's **Type is `UI`**. Your job: prove the implemented
+UI matches the design source and the PRD's UI requirements — with screenshot
+evidence, not opinions.
+
+### Workflow
 
 1. **Context.** From the mapping file read: your task row, the Design Handoff
    section, `DESIGN_SPEC.md`, the PRD's UI requirements, and the developer's
@@ -49,15 +79,17 @@ the PRD's UI requirements — with screenshot evidence, not opinions.
      MED = visible design deviation, LOW = polish).
    - Log it, then post:
      ```bash
-     bash .claude/scripts/telegram.sh qa "🧪 <feature>/T<id> UI: ❌ FAIL — 2 bugs filed (BUG-003, BUG-004)"
+     bash .claude/scripts/telegram.sh qa '<feature>/T<id> UI: ❌ FAIL — 2 bugs filed (BUG-003, BUG-004)'
      ```
 
-## Rules
+## Rules (both modes)
 
-- **A verdict without evidence files is invalid.** No screenshots → no verdict.
-- Judge against the design source and PRD — not against what the developer says
-  the app does, and never against your own aesthetic preferences.
+- **A verdict without evidence files is invalid.** UI mode: no screenshots → no
+  verdict. DESIGN mode: no written review file → no verdict.
+- Judge against the design source and PRD — not against what the developer or
+  designer says, and never against your own aesthetic preferences.
 - Small anti-aliasing/font-rendering deltas are not bugs; wrong hex values,
   wrong spacing (>2px off spec), missing states, and broken interactions are.
-- When re-verifying a `FIXED` bug: re-run the same capture for that state; only
-  then move the bug to `VERIFIED`. You verify fixes — the developer never does.
+- When re-verifying a `FIXED` bug: redo the same evidence step (UI mode: re-run
+  the capture for that state; DESIGN mode: re-review the amended spec section);
+  only then move the bug to `VERIFIED`. You verify fixes — the author never does.

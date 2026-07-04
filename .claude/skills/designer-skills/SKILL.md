@@ -39,8 +39,9 @@ spec so precise the developer never has to invent a visual decision.
    section (spec path, Figma frames used, token summary, notes for developer),
    set your task to `READY_FOR_QA`, append to the Agent Log, and post:
    ```bash
-   bash .claude/scripts/telegram.sh designer "🎨 <feature>/T<id>: design spec ready — <one-line summary>"
+   bash .claude/scripts/telegram.sh designer '<feature>/T<id>: design spec ready — <one-line summary>'
    ```
+   (Single-quote the message; the script already prepends 🎨 Designer.)
 
 ## Rules
 
@@ -58,5 +59,12 @@ spec so precise the developer never has to invent a visual decision.
 
 If QA files a bug against your design (e.g. contrast failure), you'll be
 dispatched with the bug ID. Update DESIGN_SPEC.md, mark the bug `FIXED` in the
-Bugs table (never `VERIFIED` — only QA verifies), set the task back to
-`READY_FOR_QA`, and log it.
+Bugs table (never `VERIFIED` — only QA verifies), and log it. Then, depending
+on your design task's current status:
+
+- Task is `QA_FAILED` (the bug was filed against your spec review) → set it
+  back to `READY_FOR_QA`.
+- Task is already `QA_PASSED` (the bug surfaced later, while QA'ing a
+  dependent UI task) → **leave your task's status alone**; your amended spec
+  keeps its verdict, and the manager sends the dependent UI task back to QA
+  against it.

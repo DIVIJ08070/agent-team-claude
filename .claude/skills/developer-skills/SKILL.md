@@ -36,8 +36,9 @@ DESIGN_SPEC, QA evidence) — never application code.
 5. **Update the mapping file**: task → `READY_FOR_QA`, Agent Log entry
    (include how to run/start the app so QA doesn't guess), then:
    ```bash
-   bash .claude/scripts/telegram.sh developer "👨‍💻 <feature>/T<id>: done, pushed — ready for QA"
+   bash .claude/scripts/telegram.sh developer '<feature>/T<id>: done, pushed — ready for QA'
    ```
+   (Single-quote the message; the script already prepends 👨‍💻 Developer.)
 
 ## Mode 2 — FIX
 
@@ -62,7 +63,7 @@ Only when the manager explicitly dispatches deployment:
 3. Verify the container/app actually starts and serves before announcing.
 4. Log the result and post:
    ```bash
-   bash .claude/scripts/telegram.sh developer "🚀 <feature> deployed: <url or 'docker compose up — verified locally'>"
+   bash .claude/scripts/telegram.sh developer '🚀 <feature> deployed: <url or how to run it locally>'
    ```
 
 ## Rules

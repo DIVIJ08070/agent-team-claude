@@ -44,12 +44,12 @@ Feature status values: `PLANNING` → `IN_PROGRESS` → `COMPLETE` (or `ESCALATE
 
 ## QA Verdicts
 
-> QA appends one row per task verdict. Evidence is a path (screenshots dir, test
-> output file) — a verdict without evidence is invalid.
+> QA appends one row per task verdict. Evidence is a path (design review file,
+> screenshots dir, test output file) — a verdict without evidence is invalid.
 
 | Task | Mode | Verdict | Evidence | Notes |
 |---|---|---|---|---|
-| — | UI / BACKEND | PASS / FAIL | features/<feature-name>/qa/... | — |
+| — | DESIGN / UI / BACKEND | PASS / FAIL | features/<feature-name>/qa/... | — |
 
 ## Bugs
 

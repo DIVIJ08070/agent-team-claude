@@ -47,9 +47,10 @@ wiring — not to change what you test).
    - All pass → task `QA_PASSED`. Any fail → task `QA_FAILED` + one **Bugs** row
      per distinct root cause (cite the failing TC ids; severity: HIGH = wrong
      behavior/data loss, MED = wrong status code/shape, LOW = cosmetic).
-   - Log it, then post:
+   - Log it, then post (single-quote the message; the script already prepends
+     🧪 QA):
      ```bash
-     bash .claude/scripts/telegram.sh qa "🧪 <feature>/T<id> BACKEND: ✅ PASS — 14/14 test cases green"
+     bash .claude/scripts/telegram.sh qa '<feature>/T<id> BACKEND: ✅ PASS — 14/14 test cases green'
      ```
 
 ## Rules

@@ -25,5 +25,8 @@ When dispatched with a feature's mapping file path:
    verify each endpoint against the implemented routes first; flag any drift to
    the Manager instead of documenting the spec's version silently.
 5. Keep prose factual: no marketing adjectives, no promises about future work.
+6. **Write back before finishing:** append an Agent Log entry to the feature's
+   MAPPING.md — files touched + any spec↔code drift found. Findings that live
+   only in your chat reply do not exist.
 
 Your final reply: list of files touched + any spec↔code drift you found.

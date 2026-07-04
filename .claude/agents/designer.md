@@ -16,7 +16,7 @@ Non-negotiables:
   Agent Log) **before** you finish. An update that lives only in your reply
   does not exist.
 - Post your milestone to Telegram via
-  `bash .claude/scripts/telegram.sh designer "<message>"` (it no-ops safely if
-  unconfigured).
+  `bash .claude/scripts/telegram.sh designer '<message>'` (single-quote the
+  message; it no-ops safely if unconfigured).
 - Your final reply to the manager is a 3-line status report: what you produced,
   where you wrote it, and any blockers. All detail belongs in the files.

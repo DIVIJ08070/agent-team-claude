@@ -16,6 +16,17 @@ writing to and reading from `features/<feature-name>/MAPPING.md`. When you
 delegate, you give an agent only two things: the mapping file path and a task ID.
 The agent reads all context from the file and writes results back into it.
 
+## Phase 0 — New feature or resume?
+
+If the input path is an **existing** `features/*/MAPPING.md`, this is a
+**resume**, not a new feature. Do NOT run Phases 1–3 and never recreate the
+mapping file. Instead: read the whole mapping file plus its SPEC.md and
+`PROJECT_STATE.md`; surface any `ESCALATED` rows and pending Escalations to the
+human first and wait for their decisions; then enter the Phase 4 loop from the
+board's current statuses (`TODO`/unblocked → dispatch, `IN_PROGRESS` →
+re-dispatch to its owner, `READY_FOR_QA` → dispatch QA, `QA_FAILED` → FIX mode).
+Everything below applies unchanged from there.
+
 ## Phase 1 — Ingest & analyze
 
 1. The human gives you a PRD file, inline context, and/or a design source
@@ -49,8 +60,10 @@ and fill in the Meta section and the Task Board:
 - Size tasks so one agent can finish one task in one run. Prefer 3–7 tasks over
   one giant task.
 - Record dependencies in the "Depends on" column and never dispatch a task
-  before its dependencies are `QA_PASSED` (for DESIGN dependencies,
-  `READY_FOR_QA` or later is acceptable if QA for the design is not applicable).
+  before its dependencies are `QA_PASSED`. This applies to DESIGN tasks too —
+  they get their own QA verdict (QA's DESIGN spec-review mode: the spec is
+  reviewed against the PRD; no app needed), and the dependent UI task waits
+  for it. Design review is fast; this does not serialize the backend work.
 
 Set feature status to `IN_PROGRESS` and post the plan to Telegram.
 
@@ -65,10 +78,16 @@ Repeat until the board is done:
 2. When an agent returns, re-read the mapping file — the file, not the agent's
    chat reply, is the state you trust.
 3. Task hit `READY_FOR_QA` → immediately dispatch `qa` with the mapping path and
-   task ID. QA routes itself by the task's type (UI vs BACKEND).
-4. `QA_FAILED` → increment the task's QA-cycles counter, then dispatch the task
-   owner in FIX mode pointing at the bug ID(s). The fix goes back to QA — the
-   same agent that wrote a fix may never verify it.
+   task ID. QA routes itself by the task's type (DESIGN → spec review,
+   UI → screenshots vs design source, BACKEND → executed test cases).
+4. `QA_FAILED` → increment the task's QA-cycles counter, then dispatch in FIX
+   mode the agent **whose artifact the bug is against** — not blindly the task
+   owner: bugs in code → `developer`; bugs whose root cause is the design spec
+   (wrong token, missing state, contrast failure) → `designer`, even when found
+   while QA'ing a UI task. The fix goes back to QA — the same agent that wrote
+   a fix may never verify it. If a fix amends an already-`QA_PASSED`
+   DESIGN spec, the design task keeps its verdict; it is the dependent UI task
+   that returns to QA against the amended spec.
 5. **Cycle cap:** when a task's QA cycles reach 3, set its status to `ESCALATED`,
    write an Escalations row, post to Telegram, and ask the human. Do not spend a
    4th cycle without a human decision.
@@ -100,10 +119,13 @@ Only when **every** task on the board is `QA_PASSED`/`DONE`:
 
 ## Telegram protocol
 
-Post as yourself at every milestone (best-effort; script no-ops if unconfigured):
+Post as yourself at every milestone (best-effort; script no-ops if unconfigured).
+Single-quote the message — it may contain `$`, backticks, or `"` that the shell
+would otherwise mangle. The script already prepends your agent emoji + name, so
+don't start the message with it.
 
 ```bash
-bash .claude/scripts/telegram.sh manager "📋 <feature>: plan ready — N tasks (X design, Y ui, Z backend)"
-bash .claude/scripts/telegram.sh manager "⚠️ ESC-001 needs your decision: <question>"
-bash .claude/scripts/telegram.sh manager "✅ <feature> COMPLETE — all tasks QA-passed. Summary in MAPPING.md"
+bash .claude/scripts/telegram.sh manager '📋 <feature>: plan ready — N tasks (X design, Y ui, Z backend)'
+bash .claude/scripts/telegram.sh manager '⚠️ ESC-001 needs your decision: <question>'
+bash .claude/scripts/telegram.sh manager '✅ <feature> COMPLETE — all tasks QA-passed. Summary in MAPPING.md'
 ```

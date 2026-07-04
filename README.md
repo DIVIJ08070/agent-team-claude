@@ -43,13 +43,17 @@ who coordinate through a per-feature mapping file and report progress to your
    from Figma when linked. **Developer** implements from the spec + design
    handoff, self-verifies, commits.
 5. **QA** routes itself by task type:
+   - `DESIGN` → spec review: verifies DESIGN_SPEC.md covers every PRD UI
+     requirement, values are exact, contrast ratios pass — before any code
+     depends on it.
    - `UI` → runs the app, captures **Playwright screenshots** at 375/768/1280 +
      interaction states, compares against **Figma via the Figma MCP** (or the
      design spec as fallback), plus an accessibility pass.
    - `BACKEND` → derives test cases **from the PRD before reading the code**,
      automates them, executes, and saves the results as evidence.
-6. `QA_FAILED` → Developer gets FIX mode → back to QA. After **3** failed
-   cycles the Manager escalates to you. Only when **every** task is `QA_PASSED`
+6. `QA_FAILED` → the agent whose artifact the bug is against (Developer for
+   code, Designer for design-spec bugs) gets FIX mode → back to QA. After
+   **3** failed cycles the Manager escalates to you. Only when **every** task is `QA_PASSED`
    does the Manager write the Final Summary (and deploy, if you asked).
 7. **Scribe** keeps `PROJECT_STATE.md` under 100 lines the whole time — the
    team's persistent memory across sessions.
@@ -105,7 +109,7 @@ unconfigured. To watch the team talk:
    (negative number), remove it.
 4. `cp .claude/scripts/telegram.env.example .claude/scripts/telegram.env` and
    fill in the tokens + chat id. (`telegram.env` is gitignored.)
-5. Test: `bash .claude/scripts/telegram.sh manager "hello team"` — the message
+5. Test: `bash .claude/scripts/telegram.sh manager 'hello team'` — the message
    should appear in your group.
 
 ### 3. Figma MCP (optional — powers real design comparison)
