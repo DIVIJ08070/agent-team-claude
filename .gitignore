@@ -1,0 +1,22 @@
+# Secrets — never commit real bot tokens
+.claude/scripts/telegram.env
+
+# Node / build artifacts of apps the team builds inside this repo
+node_modules/
+dist/
+build/
+.next/
+coverage/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# QA evidence can get large; screenshots are kept per-feature but
+# transient playwright output dirs are ignored
+test-results/
+playwright-report/
+
+# OS noise
+.DS_Store
