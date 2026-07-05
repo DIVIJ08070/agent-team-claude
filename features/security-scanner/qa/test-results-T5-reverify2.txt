@@ -1,0 +1,210 @@
+================================================================================
+T5 RE-VERIFICATION — QA CYCLE 2 — BUG-006 + BUG-007
+Mode: BACKEND (qa-backend-skills) · re-verify FIXED bugs with REAL runs
+Commit under test: ce3ad59 (fix ac91d6b — server/scanners/semgrep.ts +
+                   server/normalize/types.ts + test/semgrep-adapter.test.ts)
+Host tools (live /api/tools probe): semgrep 1.168.0, osv-scanner 2.4.0,
+  gitleaks 8.30.1, npm-audit 11.4.2, claude 2.1.201 all available;
+  trivy + pip-audit not installed (both optional).
+Method: judged against SPEC "never surface host paths" invariant + the bug
+  reports — verified with a REAL end-to-end scan through the live pipeline, not
+  the developer's description.
+================================================================================
+
+VERDICT: PASS — BUG-006 VERIFIED, BUG-007 VERIFIED.
+NEW DEFECT FILED: BUG-008 (HIGH) — Claude AI enrichment/remediation silently
+  no-ops on every real scan (app's MINIMAL_ENV omits USER → `claude -p` returns
+  "Not logged in"). Separate from BUG-006/007; routes to the Claude integration
+  owner (T6/config). Does NOT affect the T5/BUG-006/007 verdict.
+
+--------------------------------------------------------------------------------
+EVIDENCE ARTIFACTS (features/security-scanner/qa/)
+--------------------------------------------------------------------------------
+- e2e-T5-reverify2/scan-result.json  — full ScanResult from a REAL scan of
+                                       samples/vulnerable-app.zip (drawer data source)
+- e2e-T5-reverify2/report.md          — the downloadable remediation report (22.9 KB)
+- e2e-T5-reverify2/claude-probe.txt   — faithful reproduction of pipeline call A + B
+                                       (raw `claude -p` envelope + parse result)
+- this file                           — suite output + host-path scan + analysis
+
+================================================================================
+1. REGRESSION — T5 SUITES + TYPECHECK (real binaries present)
+================================================================================
+  tsc --noEmit ................. exit 0 (clean)
+  normalize.test.ts ........... 32 passed
+  scanners.qa.test.ts ......... 49 passed
+  semgrep-adapter.test.ts ..... 14 passed  (BUG-006 + BUG-007 + BUG-004 blocks;
+                                the real-semgrep-guarded runs EXECUTED, not skipped)
+  --------------------------------------------------------------
+  TOTAL ....................... 95/95 green
+  (full runner output appended at the bottom of this file)
+
+Prior T5 guarantees re-confirmed by the real scan below: secret-VALUE redaction,
+cross-tool dedupe, archive-relative paths, no-exec, semgrep non-degraded
+(BUG-004 still fixed), and host-path-non-leak NOW ALSO holding for ruleId.
+
+================================================================================
+2. REAL END-TO-END SCAN (live server 127.0.0.1:5205, real pipeline)
+================================================================================
+Upload samples/vulnerable-app.zip → POST /api/scan → 202 → poll → done →
+GET /api/scan/:id (ScanResult) + GET /api/scan/:id/report.md.
+
+  status: done
+  findings: 18  (5 critical / 4 high / 8 medium / 1 low / 0 info)
+  summary.degraded: false
+  toolsRun: semgrep(3), osv-scanner(14), gitleaks(1), claude-cli(mode
+            enrich+logic, findingCount 0)
+  toolsSkipped: trivy(not_installed), npm-audit(not_applicable),
+                pip-audit(not_applicable)
+  detection: JavaScript (Node.js)
+
+================================================================================
+3. BUG-006 — host-path leak in semgrep ruleId  →  VERIFIED (FIXED)
+================================================================================
+All 3 semgrep findings in the REAL ScanResult:
+
+  ruleId                              title                                file:line
+  ----------------------------------  -----------------------------------  ----------------------------
+  js-hardcoded-secret                 js-hardcoded-secret                  vulnerable-app/src/server.js:12
+  js-child-process-command-injection  js-child-process-command-injection   vulnerable-app/src/server.js:17
+  js-dangerous-eval                   js-dangerous-eval                    vulnerable-app/src/server.js:26
+
+  references (example): https://cwe.mitre.org/data/definitions/95.html,
+                        OWASP: A03:2021 - Injection,
+                        CWE-95: ... (Eval Injection)   ← clean CWE/OWASP, no path
+
+- ruleId is now a CLEAN, MEANINGFUL rule name (pre-fix it was
+  `Users.divijpatel.Desktop.agent-team.app.rules.javascript.js-<rule>`).
+- title (derived from ruleId) is clean; references are clean CWE/OWASP URLs.
+
+EXHAUSTIVE host-path / sentinel scan of the ENTIRE ScanResult JSON AND the
+downloadable report.md (patterns: /Users/, /opt/, /private/tmp, /var/folders,
+$HOME, "divijpatel", "agent-team", "app/rules", "app.rules", "Users.divijpatel",
+"rules.javascript", "rules.python", "secscan-", "requires login"):
+
+  ScanResult JSON ...... CLEAN — no host-path/sentinel fragments found
+  report.md ............ CLEAN — no host-path/sentinel fragments found
+
+Confirmed in the ScanResult (= finding drawer data source), AND report.md. PASS.
+
+================================================================================
+4. BUG-007 — redacted "requires login" snippets  →  VERIFIED (FIXED)
+================================================================================
+The 2 SAST findings now carry the REAL vulnerable source code (backfilled from
+the extracted read-only tree post-normalization):
+
+  js-child-process-command-injection (server.js:17-19), codeSnippet =
+    | // OS command injection: user input is concatenated straight into a shell.
+    | app.get("/ping", (req, res) => {
+    |   const host = req.query.host;
+    |   exec("ping -c 1 " + host, (err, stdout) => {
+    |     res.send(stdout || String(err));
+    |   });
+    | });
+    | ...
+
+  js-dangerous-eval (server.js:26), codeSnippet =
+    | app.get("/calc", (req, res) => {
+    |   const expr = req.query.expr;
+    |   // eslint-disable-next-line no-eval
+    |   const result = eval(expr);
+    |   res.send("result: " + result);
+    | });
+
+- The secret finding (js-hardcoded-secret, category "secret") has
+  codeSnippet: null — a credential line is NEVER surfaced (secret-redaction
+  guarantee preserved).
+- The "requires login" sentinel appears NOWHERE in the ScanResult or report.md.
+- Snippets are size-capped (SNIPPET_MAX_CHARS 2000, SNIPPET_READ_CAP 256 KB) and
+  path-safe (rejects abs/`..`/out-of-tree; reads the extracted tree only, never
+  executes) — enforced in defaultSnippetReader and covered by the executed
+  semgrep-adapter.test.ts BUG-007 block (window + path-safety + real run).
+- report.md renders the same real snippets in fenced blocks (C4, C5).
+
+Secret-VALUE redaction cross-check: none of the 4 raw fixture secrets
+(AKIA…, wJalrX…/bPxRfiCYEXAMPLEKEY, ghp_…, sk_live_…) appear anywhere in the
+ScanResult or report.md. PASS.
+
+================================================================================
+5. AI ENRICHMENT / REMEDIATION (core product goal) — GAP, NOT judicious
+================================================================================
+With real snippets now fed to Claude, Claude STILL contributes NOTHING on real
+data:
+  - summary.enrichedByClaude ..... false
+  - enrichedByClaude findings .... 0
+  - claude-cli newFindings ....... 0   (toolRun findingCount 0, ran ~1050ms)
+  - report.md remediation body ... the DETERMINISTIC TEMPLATE, not AI-authored
+      (generic "Review the flagged code and refactor…"; NO "_(AI-assisted)_"
+       tags; call B runClaudeRemediation returned null → template fallback)
+
+ROOT CAUSE (pinned + reproduced — this is a GAP, not restraint, and NOT caused
+by BUG-007's now-fixed snippets):
+
+  The pipeline spawns `claude -p` under config.MINIMAL_ENV, whose allowlist is
+  {PATH, HOME, LANG}. The Claude Code CLI's macOS Keychain login lookup ALSO
+  needs the `USER` environment variable, which MINIMAL_ENV omits. So every real
+  scan's `claude -p` returns:
+
+    {"type":"result","is_error":true,
+     "result":"Not logged in · Please run /login",
+     "total_cost_usd":0,"usage":{"input_tokens":0,...}}
+
+  parse.textFromEnvelope() maps is_error:true → null → parseEnrichResponse null
+  → enrich ok:false, findingCount 0 (enrich.ts:110 branch); the same for call B
+  → markdown null → template body. degraded stays false because a zero-finding
+  toolRun is recorded (not a skip).
+
+DIRECT BISECTION PROOF (echo hi | claude -p --output-format json):
+  full shell env ......................... is_error:false, cost $0.059, 4417 tok  ✅ logged in
+  full env MINUS ANTHROPIC_API_KEY ....... is_error:false, 4417 tok              ✅ (NOT the API key)
+  env -i PATH+HOME+LANG (= MINIMAL_ENV) .. "Not logged in · Please run /login"    ❌
+  env -i PATH+HOME+LANG + USER ........... is_error:false                          ✅ USER is the missing var
+  env -i PATH+HOME+LANG + LOGNAME ........ "Not logged in"                          ❌
+  Notes: ANTHROPIC_API_KEY is NOT set in the shell (login is Claude Code OAuth,
+         not an API token — consistent with the PRD). No ~/.claude/.credentials.json
+         → credential lives in the macOS Keychain; the CLI keys its lookup on USER.
+
+IMPACT: the AI half of the "hybrid scanner + local Claude" product — AI
+enrichment, logic-flaw newFindings, and the AI-authored remediation guide — is
+silently non-functional on EVERY real scan. The scanner half is fully correct
+and non-degraded. Filed as BUG-008 (HIGH).
+
+FIX DIRECTION (developer, config): add "USER" (and "LOGNAME") to the
+config.ts MINIMAL_ENV allowlist. Security posture preserved — USER is not a
+secret and ANTHROPIC_API_KEY stays stripped. After the fix, re-QA must confirm a
+real scan produces enrichedByClaude tags / claude-cli findings and an AI-authored
+report.md body.
+
+--------------------------------------------------------------------------------
+OUT-OF-SCOPE OBSERVATION (not filed, not a BUG-006/007 concern):
+  npm-audit skipped this scan as "not_applicable: no package.json to audit" even
+  though the zip nests package.json+lock under vulnerable-app/. Dependency
+  coverage is intact (osv-scanner reported all 14 lockfile CVEs; degraded=false;
+  npm-audit is optional). Flagging for the manager only.
+================================================================================
+
+
+APPENDIX — FULL T5 SUITE RUNNER OUTPUT
+================================================================================
+### tsc --noEmit
+tsc-exit:0
+
+### T5 suites: normalize + scanners.qa + semgrep-adapter (REAL binaries present)
+
+ RUN  v2.1.9 /Users/divijpatel/Desktop/agent-team/app
+
+ ✓ test/normalize.test.ts (32 tests) 59ms
+ ✓ test/semgrep-adapter.test.ts (14 tests) 3965ms
+   ✓ BUG-004 — Semgrep adapter uses --no-error, not --error=false > (b) real semgrep run over a vulnerable fixture → ≥1 SAST finding, valid JSON (no errored skip) 1922ms
+   ✓ BUG-007 — redacted snippet detection + file-backed backfill > (real) semgrep run over the vulnerable fixture → SAST snippets are REAL code, never 'requires login' 2034ms
+ ✓ test/scanners.qa.test.ts (49 tests) 6050ms
+   ✓ Area E — /api/tools shape + registry-sourced availability > TC-E01/E02/E03 §4.6 shape unchanged; scanners from registry; required flags correct 2278ms
+   ✓ Area E — /api/tools shape + registry-sourced availability > TC-E04 availability is honest & env-agnostic (available ⇔ version present) 1156ms
+   ✓ Area E — /api/tools shape + registry-sourced availability > TC-E05 limits match config single-source values (§11.3) 1110ms
+   ✓ Area E — /api/tools shape + registry-sourced availability > TC-E01(route) GET /api/tools returns the §4.6 shape end-to-end 1224ms
+
+ Test Files  3 passed (3)
+      Tests  95 passed (95)
+   Start at  04:18:57
+   Duration  6.43s (transform 206ms, setup 0ms, collect 2.31s, tests 10.07s, environment 0ms, prepare 149ms)
+

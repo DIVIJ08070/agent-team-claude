@@ -1,0 +1,184 @@
+================================================================================
+ QA BACKEND — T2 (Foundation) — EXECUTED TEST RESULTS
+ Feature: security-scanner   Task: T2   Mode: BACKEND
+ Date: 2026-07-04   Env: node v23.6.1, npm 11.4.2, macOS (darwin 24.6.0)
+ Test cases: features/security-scanner/qa/TEST_CASES-T2.md (derived from SPEC
+   §2/§3/§4.6/§4.8/§5/§11.3 BEFORE reading the implementation)
+ VERDICT: PASS — 34/34 test cases green.
+ Out of scope (T3–T7, not built): sandbox / detect / scanner / claude / pipeline.
+================================================================================
+
+Evidence artifacts:
+  - app/test/qa-t2.test.ts               (independent QA Vitest suite, TC ids in names)
+  - app/test/qa-t2-contracts-coverage.ts (compile-only §5 coverage fixture, TC-12/13/14)
+  - features/security-scanner/qa/probe-config.ts (fresh-process config probe, TC-15/16/17/18)
+
+
+================================================================================
+ TC-01 — npm install succeeds
+================================================================================
+$ npm install
+added 119 packages, and audited 342 packages in 2s
+6 vulnerabilities (4 moderate, 1 high, 1 critical)   # advisory only — see notes
+INSTALL_EXIT=0                                         # PASS
+
+
+================================================================================
+ TC-02 — strict TypeScript typecheck + production build (PRISTINE app,
+          before adding any QA test files)
+================================================================================
+$ npm run typecheck        # tsc --noEmit
+TYPECHECK_EXIT=0                                       # PASS (zero errors, strict)
+
+$ npm run build            # tsc --noEmit && vite build
+✓ 25 modules transformed.
+dist/index.html                  0.33 kB
+dist/assets/index-L50fIZDZ.js  144.11 kB
+✓ built in 304ms                                       # PASS (web/dist emitted)
+
+
+================================================================================
+ TC-03/04/05 — build config inspection (app/tsconfig.json, package.json, vite.config.ts)
+================================================================================
+TC-03 tsconfig.json  : "strict": true; "module": "ESNext"; "moduleResolution":
+                       "Bundler"; package.json "type":"module" → strict ESM.  PASS
+TC-04 package.json   : scripts = dev, dev:server, dev:web, typecheck, build,
+                       start, test  → dev/build/start/test all present.        PASS
+TC-05 vite.config.ts : server.proxy["/api"].target =
+                       http://127.0.0.1:${PORT} (dev proxy to Fastify backend). PASS
+                       (server.host also pinned to "127.0.0.1")
+
+
+================================================================================
+ TC-12/13/14 — contracts §5 export coverage (compile check WITH the QA fixture)
+================================================================================
+$ npm run typecheck     # now also typechecks test/qa-t2-contracts-coverage.ts
+TYPECHECK_EXIT=0                                       # PASS
+
+  The fixture imports & constructs every SPEC §5 type — Severity,
+  FindingCategory, SourceTool, Finding, Language, Framework, DetectedFramework,
+  DetectionResult, ToolRunInfo, ToolSkipInfo, ScanSummary, EnforcedLimits,
+  ScanResult, ErrorResponse — with exact member unions / field shapes. tsc
+  passing proves all are exported and shaped per SPEC (TC-12, TC-14).
+  shared/contracts.ts has ZERO imports (pure type declarations) and is imported
+  by the server (errors.ts / session.ts / routes/health.ts) → importable by
+  both server and web (TC-13).
+
+
+================================================================================
+ TC-06..11, 15, 17..32 — FULL Vitest suite (developer 18 + QA 21 = 39 tests)
+================================================================================
+$ npx vitest run --reporter=verbose
+
+ ✓ test/qa-t2.test.ts > config.ts §11.3 > TC-15: every default limit matches SPEC §11.3
+ ✓ test/qa-t2.test.ts > config.ts §11.3 > TC-17: temp root os.tmpdir() + secscan- prefix
+ ✓ test/qa-t2.test.ts > config.ts §11.3 > TC-18: MINIMAL_ENV allowlist, no ANTHROPIC_API_KEY
+ ✓ test/qa-t2.test.ts > subprocess §hardening > TC-20: shell-metachar arg passed literally (no injection)
+ ✓ test/qa-t2.test.ts > subprocess §hardening > TC-19: refuses non-bare-binary command name
+ ✓ test/qa-t2.test.ts > subprocess §hardening > TC-21: strips ANTHROPIC_API_KEY from child
+ ✓ test/qa-t2.test.ts > subprocess §hardening > TC-22: timeout SIGKILLs the process GROUP (1907ms)
+ ✓ test/qa-t2.test.ts > subprocess §hardening > TC-23: maxBuffer overflow kills child + rejects
+ ✓ test/qa-t2.test.ts > errors §4.8 > TC-24: envelope { error:{ code,message,details? } }
+ ✓ test/qa-t2.test.ts > errors §4.8 > TC-25: full 16-code enum with exact HTTP statuses
+ ✓ test/qa-t2.test.ts > errors §4.8 > TC-26: envelope never leaks a host-absolute path
+ ✓ test/qa-t2.test.ts > session §5 > TC-27: in-memory Map get/set, unknown → undefined
+ ✓ test/qa-t2.test.ts > session §5 > TC-28: TTL sweeper force-evicts expired session
+ ✓ test/qa-t2.test.ts > session §5 > TC-29: cleanup rm -rf's read-only workDir, sets cleanupDone
+ ✓ test/qa-t2.test.ts > session §5 > TC-30: concurrent cap ≤ 8, oldest evicted first
+ ✓ test/qa-t2.test.ts > logger §11.2 > TC-31: secret-shaped fields censored ([REDACTED])
+ ✓ test/qa-t2.test.ts > logger §11.2 > TC-32: scrubHostPaths replaces host prefix with <path>
+ ✓ test/qa-t2.test.ts > server §2.1/§4.6 > TC-07: GET /api/health → 200 { ok:true }
+ ✓ test/qa-t2.test.ts > server §2.1/§4.6 > TC-08/09/10: /api/tools shape + required flags + limits
+ ✓ test/qa-t2.test.ts > server §2.1/§4.6 > TC-11: no permissive CORS header
+ ✓ test/qa-t2.test.ts > real loopback listen > TC-06: app.server.address()==="127.0.0.1"
+ ✓ (+ developer's 18 tests: subprocess/errors/server) all green
+
+ Test Files  4 passed (4)
+      Tests  39 passed (39)
+ VITEST_EXIT=0                                         # PASS
+
+ Note TC-22: the grandchild-marker technique proves the whole detached process
+ GROUP is SIGKILLed — a grandchild scheduled to write a marker file 1.2s later
+ never wrote it after the 300ms timeout fired (test ran 1907ms incl. the wait).
+
+
+================================================================================
+ TC-15/16/17/18 — config defaults + env overrides in a FRESH process
+================================================================================
+$ npx tsx features/security-scanner/qa/probe-config.ts        # no env → defaults
+  port 5174; allowOnlineVulnDb true; tempRoot=<os.tmpdir()>; tempPrefix "secscan-";
+  maxConcurrentSessions 8;
+  limits = { maxUploadBytes 104857600, maxExtractedBytes 536870912, maxFiles 20000,
+             maxSingleFileBytes 52428800, maxCompressionRatio 200, maxNestingDepth 1,
+             maxScanMs 180000, perToolTimeoutMs 60000, claudeTimeoutMs 90000,
+             claudeCodeBudgetBytes 204800, sessionTtlMs 900000, subprocessMaxBuffer 33554432 }
+  minimalEnvKeys ["HOME","PATH"]; minimalEnvHasApiKey false          # TC-15/17/18 PASS
+
+$ SCANNER_MAX_UPLOAD=12345678 SCANNER_MAX_EXTRACTED=87654321 SCANNER_MAX_FILES=99 \
+  SCANNER_MAX_SCAN_MS=4242 SCANNER_ALLOW_ONLINE_VULN_DB=false PORT=6001 \
+  ANTHROPIC_API_KEY=sk-parent-should-be-stripped npx tsx .../probe-config.ts
+  port 6001; allowOnlineVulnDb false;
+  limits.maxUploadBytes 12345678; maxExtractedBytes 87654321; maxFiles 99; maxScanMs 4242;
+  minimalEnvHasApiKey false                                          # TC-16 PASS
+  → every SCANNER_*/PORT override honored; the parent's ANTHROPIC_API_KEY never
+    reached MINIMAL_ENV even when explicitly set.
+
+
+================================================================================
+ TC-06 (runtime) — LIVE server loopback smoke (npm start, PORT=5199)
+================================================================================
+$ curl -s http://127.0.0.1:5199/api/health
+{"ok":true}
+
+$ curl -s http://127.0.0.1:5199/api/tools
+{"scanners":[
+  {"tool":"semgrep","available":false,"version":null,"required":true},
+  {"tool":"osv-scanner","available":false,"version":null,"required":true},
+  {"tool":"gitleaks","available":false,"version":null,"required":true},
+  {"tool":"trivy","available":false,"version":null,"required":false},
+  {"tool":"npm-audit","available":true,"version":"11.4.2","required":false},
+  {"tool":"pip-audit","available":false,"version":null,"required":false}],
+ "claude":{"available":false,"version":null},
+ "limits":{"maxUploadBytes":104857600,"maxExtractedBytes":536870912,
+           "maxFiles":20000,"maxScanMs":180000}}
+  → honest graceful degradation (only npm-audit installed here) + correct §4.6
+    shape / required flags / §11.3 limits.
+
+$ lsof -nP -iTCP:5199 -sTCP:LISTEN
+node  27125  ...  TCP 127.0.0.1:5199 (LISTEN)          # bound to loopback, NOT *:5199
+
+$ curl --max-time 4 http://10.101.43.234:5199/api/health   # machine LAN IP
+REFUSED_ON_LAN=YES (expected — loopback only)         # TC-06 runtime PASS
+
+
+================================================================================
+ TC-33/34 — NO API KEY anywhere (grep app/)
+================================================================================
+TC-33 .env.example: ANTHROPIC_API_KEY appears ONLY inside a "NEVER put ... in
+      this file" warning banner — a prohibition, never a required setting.  PASS
+TC-34 app/ source : every ANTHROPIC_API_KEY occurrence is strip/redact/prohibit/
+      test/doc context —
+        server/config.ts:43   delete env["ANTHROPIC_API_KEY"]   (strips it)
+        server/util/logger.ts:33-35  redact paths                (censors it)
+        server/util/subprocess.ts:12 comment                     (documents strip)
+        README.md / .env.example      documentation/prohibition
+        test/*.test.ts                prove the strip
+      → never read as a required env var. No Anthropic HTTP-API / SDK usage found
+        anywhere (@anthropic-ai / api.anthropic.com / new Anthropic() → none).  PASS
+
+
+================================================================================
+ ADVISORY (not a filed bug; outside the T2 foundation contract)
+================================================================================
+  `npm install` reports 6 advisories (4 moderate / 1 high / 1 critical). Prod-only
+  audit (`npm audit --omit=dev`) = 1 moderate in @fastify/static (a runtime dep,
+  fix requires the breaking @fastify/static@9). The high/critical live in the
+  dev-only vite/vitest/esbuild chain. This is dependency hygiene, not a T2
+  contract violation — every SPEC §2/§3/§4.6/§4.8/§5/§11.3 contract for the
+  foundation is satisfied. Flagged for the manager's awareness (ironic for a
+  security scanner); recommend a dependency-bump pass before v1 ship.
+
+
+================================================================================
+ TALLY: 34/34 test cases PASS  →  T2 QA_PASSED
+================================================================================

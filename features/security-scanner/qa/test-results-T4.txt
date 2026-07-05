@@ -1,0 +1,53 @@
+# T4 Framework Detection (SEAM 2) — Executed Test Results
+# Run: 2026-07-04T19:03:01Z  node v23.6.1  vitest 2.1.9
+# Command: SCANNER_MAX_FILES=50 npx vitest run --reporter=verbose test/detect.test.ts test/detect.qa.test.ts
+# Env note: SCANNER_MAX_FILES=50 keeps the truncation fixture (cap+10 files) fast; all other fixtures are <50 files so detection is unaffected.
+# Typecheck: npx tsc --noEmit -> exit 0 (strict ESM, includes detect.qa.test.ts)
+========================================================================
+
+ RUN  v2.1.9 /Users/divijpatel/Desktop/agent-team/app
+
+ ✓ test/detect.test.ts > fileIndex — guarded single tree walk > indexes files with relative POSIX paths + sizes and answers has()
+ ✓ test/detect.test.ts > fileIndex — guarded single tree walk > read() returns file contents up to the cap
+ ✓ test/detect.test.ts > fileIndex — guarded single tree walk > read() returns null for a file larger than maxBytes (oversized manifest reject)
+ ✓ test/detect.test.ts > fileIndex — guarded single tree walk > read() returns null for missing files and for traversal / absolute paths
+ ✓ test/detect.test.ts > fileIndex — guarded single tree walk > does not follow symlinks during the walk
+ ✓ test/detect.test.ts > node detector (SPEC §6) > detects next + react (high) from package.json deps, with node marker
+ ✓ test/detect.test.ts > node detector (SPEC §6) > detects express (high) from an express dependency
+ ✓ test/detect.test.ts > node detector (SPEC §6) > infers node at MEDIUM confidence from .js files when there is no package.json
+ ✓ test/detect.test.ts > python detector (SPEC §6) > detects django (high) from manage.py + Django in requirements.txt
+ ✓ test/detect.test.ts > python detector (SPEC §6) > detects flask (high) from Flask in requirements.txt
+ ✓ test/detect.test.ts > python detector (SPEC §6) > detects fastapi (high) from fastapi/uvicorn in pyproject.toml (light TOML scan)
+ ✓ test/detect.test.ts > python detector (SPEC §6) > infers python at MEDIUM from .py files when there is no manifest
+ ✓ test/detect.test.ts > safety — malformed manifest degrades to unknown, never throws (SPEC §6) > does not throw on invalid package.json and still reports node from the marker
+ ✓ test/detect.test.ts > safety — malformed manifest degrades to unknown, never throws (SPEC §6) > returns an empty detection (primaryLanguage null) for a project with no markers
+ ✓ test/detect.test.ts > registry — runDetection aggregation + primaryLanguage > aggregates a polyglot project and picks the higher-weighted language
+ ✓ test/detect.qa.test.ts > QA A · FileIndex > TC-01 files carry POSIX-relative paths + real sizes; nested paths use forward slashes
+ ✓ test/detect.qa.test.ts > QA A · FileIndex > TC-02 has() true for present, false for absent + traversal
+ ✓ test/detect.qa.test.ts > QA A · FileIndex > TC-03/TC-04 read() returns content at/under cap; boundary maxBytes===size works
+ ✓ test/detect.qa.test.ts > QA A · FileIndex > TC-05/TC-83 oversized manifest (>2MB) read with a 2MB cap → null, no throw
+ ✓ test/detect.qa.test.ts > QA A · FileIndex > TC-06/TC-07/TC-08 traversal / absolute / backslash / missing → null, no throw
+ ✓ test/detect.qa.test.ts > QA A · FileIndex > TC-09 symlinks (file AND directory) are NOT followed during the walk
+ ✓ test/detect.qa.test.ts > QA A · FileIndex > TC-10 FileIndex.truncated set when the walk hits the maxFiles cap
+ ✓ test/detect.qa.test.ts > QA A · FileIndex > TC-11 truncated=false for a small tree
+ ✓ test/detect.qa.test.ts > QA B · node detector > TC-20/TC-22 express (high) + node marker from an express dep
+ ✓ test/detect.qa.test.ts > QA B · node detector > TC-21 next declared → next AND react, both high
+ ✓ test/detect.qa.test.ts > QA B · node detector > TC-23 react-dom → react (high)
+ ✓ test/detect.qa.test.ts > QA B · node detector > TC-24/TC-25 TypeScript + lockfile recorded as evidence on node
+ ✓ test/detect.qa.test.ts > QA B · node detector > TC-26/TC-27 no package.json + .js → node MEDIUM (inferred); declared stays high
+ ✓ test/detect.qa.test.ts > QA B · node detector > TC-EXTRA next.config.* is a strong marker even without a next dep → next+react high
+ ✓ test/detect.qa.test.ts > QA C · python detector > TC-40/TC-42 requirements + Flask → python + flask (high)
+ ✓ test/detect.qa.test.ts > QA C · python detector > TC-41 manage.py alone → django (high), no false Flask
+ ✓ test/detect.qa.test.ts > QA C · python detector > TC-43 fastapi via pyproject.toml + uvicorn via requirements (light text scan)
+ ✓ test/detect.qa.test.ts > QA C · python detector > TC-44 no manifest + .py → python MEDIUM
+ ✓ test/detect.qa.test.ts > QA D · registry aggregation + primaryLanguage > TC-60/TC-61 polyglot: both languages present; primaryLanguage is the higher-weighted one
+ ✓ test/detect.qa.test.ts > QA D · registry aggregation + primaryLanguage > TC-63 result shape conforms to §5 DetectionResult
+ ✓ test/detect.qa.test.ts > QA E · safety & no-execution (SPEC §6, G1) > TC-80 malformed package.json does NOT throw; degrades to marker-only node (no dep frameworks)
+ ✓ test/detect.qa.test.ts > QA E · safety & no-execution (SPEC §6, G1) > TC-81 empty project → [] + primaryLanguage null
+ ✓ test/detect.qa.test.ts > QA E · safety & no-execution (SPEC §6, G1) > TC-82 NEVER executes/imports uploaded content — a hostile setup.py/postinstall runs nothing
+
+ Test Files  2 passed (2)
+      Tests  38 passed (38)
+   Start at  00:33:01
+   Duration  299ms (transform 79ms, setup 0ms, collect 145ms, tests 54ms, environment 0ms, prepare 98ms)
+

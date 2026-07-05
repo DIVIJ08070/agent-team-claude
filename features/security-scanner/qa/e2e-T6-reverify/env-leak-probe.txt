@@ -1,0 +1,8 @@
+config.MINIMAL_ENV keys: ["HOME","LOGNAME","PATH","USER"]
+canaries present in MINIMAL_ENV object: [] (MUST be [])
+
+--- child (`env`) saw these vars ---
+# Android SDK, # Antigravity (keep only once), # Flutter, # Java (OpenJDK 17), HOME, LOGNAME, PATH, USER, export ANDROID_HOME, export JAVA_HOME, export PATH, export PATH, export PATH, export PATH, export PATH, export PATH
+
+canaries leaked to the spawned child: [] (MUST be [])
+VERDICT (env-security invariant): HOLDS — no secret/API key reaches any child ✅

@@ -1,0 +1,208 @@
+================================================================================
+T6 RE-VERIFICATION — QA CYCLE 1 — BUG-008 (Claude login / MINIMAL_ENV)
+Mode: BACKEND (qa-backend-skills) · re-verify a FIXED bug with REAL runs
+Commit under test: 766a293 — app/server/config.ts buildMinimalEnv() allowlist
+  ["PATH","HOME","LANG"] -> ["PATH","HOME","USER","LOGNAME","LANG"]
+  (git show: only config.ts + the two adjusted test files + new config test).
+Host tools (live GET /api/tools): semgrep 1.168.0, osv-scanner 2.4.0,
+  gitleaks 8.30.1, npm-audit 11.4.2, claude 2.1.201 available; trivy + pip-audit
+  absent (both optional).
+Default claude model on this account (from the CLI envelope): claude-opus-4-8[1m]
+  — a 1M-context, slow, expensive model. This matters (see §3/§6).
+Method: judged against the CORE PRODUCT GOAL (AI-written remediation via the
+  user's Claude Code account, surfaced on a REAL scan) with a real end-to-end
+  scan through the live pipeline on 127.0.0.1 — NOT the developer's description
+  (the dev self-verified only with a trivial "reply with OK" repro, not a scan).
+================================================================================
+
+VERDICT: FAIL.
+  - BUG-008 env root cause (USER omitted → "Not logged in") is FIXED and the
+    login-level fix is VERIFIED: `claude -p` under the app's ACTUAL config.MINIMAL_ENV
+    is now logged in and, given time, Claude produces rich AI output.
+  - BUT the product goal BUG-008's re-QA must confirm — "a real scan then produces
+    enrichedByClaude tags / claude-cli findings + an AI-authored report.md body" —
+    is STILL NOT MET on a real scan. The AI half of the hybrid product remains a
+    no-op end-to-end, now due to a DISTINCT, previously-MASKED defect:
+  - NEW DEFECT → BUG-009 (HIGH): Claude enrich (call A) and remediation (call B)
+    each far exceed the app's 90s claudeTimeoutMs and the 180s MAX_SCAN_MS deadline
+    with the default Opus 4.8[1m] model, so every real scan records claude-cli as
+    toolsSkipped{errored}, enrichedByClaude=false, 0 enrichments/0 newFindings, and
+    the report.md falls back to the deterministic template.
+  So: T6 → QA_FAILED; BUG-008 NOT verified (symptom persists via BUG-009); the
+  env fix itself is correct and must be RETAINED.
+
+--------------------------------------------------------------------------------
+EVIDENCE ARTIFACTS (features/security-scanner/qa/e2e-T6-reverify/)
+--------------------------------------------------------------------------------
+- money-check.txt          — `claude -p` through the app's OWN invokeClaude() under
+                             config.MINIMAL_ENV → is_error:false, logged in (money check)
+- scan-result.json         — full ScanResult from a REAL scan of samples/vulnerable-app.zip
+- report.md                — the downloadable remediation report (22.9 KB) — TEMPLATE path
+- server.log               — live-server pino log (proves the 180s deadline hit)
+- enrich-isolation.txt/.json — call A + call B re-run with a GENEROUS 240s timeout:
+                             proves Claude WOULD enrich (207s) + author remediation (218s)
+- remediation-body-callB.md — the 16.8 KB AI-authored remediation body (given time)
+- env-leak-probe.txt       — real spawned child receives NO secret even with 4 secrets
+                             set in the parent env
+- this file                — suite output + full analysis
+
+================================================================================
+1. MONEY CHECK — `claude -p` under the app's ACTUAL config.MINIMAL_ENV  →  PASS
+================================================================================
+Ran the app's OWN invokeClaude("reply OK") which spawns `claude -p --output-format
+json ...` under config.MINIMAL_ENV via the hardened runSubprocess wrapper.
+
+  config.MINIMAL_ENV keys ......... ["HOME","LOGNAME","PATH","USER"]
+                                     (LANG absent only because it is empty in this shell)
+  has ANTHROPIC_API_KEY ........... false
+  claude -p envelope .............. {"is_error":false,"result":"OK",
+                                     "usage":{"input_tokens":5934},"total_cost_usd":0.062729}
+  extractAssistantText(raw) ....... "OK"
+  → LOGGED IN. BUG-008's literal "Not logged in" defect is GONE. (Pre-fix, the same
+    call returned {"is_error":true,"result":"Not logged in · Please run /login"}.)
+
+USER=divijpatel, LOGNAME=divijpatel present; no ~/.claude/.credentials.json (login is
+macOS-Keychain OAuth, keyed on the username) — consistent with the BUG-008 root cause.
+
+================================================================================
+2. REAL END-TO-END SCAN (live server 127.0.0.1:5261, real pipeline)  →  Claude no-ops
+================================================================================
+Upload samples/vulnerable-app.zip → POST /api/scan → 202 → poll → done →
+GET /api/scan/:id (ScanResult) + GET /api/scan/:id/report.md.
+
+  status .......................... done
+  detection ....................... JavaScript (Node.js)
+  findings ........................ 18  (5 critical / 4 high / 8 medium / 1 low / 0 info)
+  summary.degraded ................ false
+  summary.enrichedByClaude ........ FALSE          <- core-goal miss
+  findings enrichedByClaude=true .. 0               <- core-goal miss
+  findings sourceTool=claude-cli .. 0               <- core-goal miss
+  toolsRun ........................ semgrep(3), osv-scanner(14), gitleaks(1)
+  toolsSkipped .................... trivy(not_installed), npm-audit(not_applicable),
+                                    pip-audit(not_applicable),
+                                    claude-cli(ERRORED)  <- NOT toolsRun, NOT claude-unavailable
+  report.md body .................. DETERMINISTIC TEMPLATE (call B fell back):
+                                    - NO "## Remediation guidance" AI wrapper header
+                                    - NO "_AI-authored by the local Claude Code CLI_" line
+                                    - 18 template finding headings "### C1 . ... . `loc` . tool"
+                                    - the only "_(AI-assisted)_" hit is the boilerplate
+                                      Methodology footer line, NOT a tagged finding
+  -> On a REAL scan, both items #1(real-scan output) and #2(AI report.md) are UNMET.
+
+Scan timing (server.log, authoritative timestamps):
+  POST /api/scan .................. 23:08:31.739
+  "scan complete" ................. 23:11:31.777  -> 180.038 s == MAX_SCAN_MS (180 s)
+  enriching phase (call A) ........ ~23:08:35 -> ~23:10:05  (~90 s, == claudeTimeoutMs)
+  So call A hit the 90 s per-call timeout -> threw -> toolsSkipped{errored}; then call B
+  (remediation, in "assembling") ran until the 180 s global deadline aborted it ->
+  markdown null -> template body. BOTH Claude calls timed out.
+
+================================================================================
+3. ROOT-CAUSE ISOLATION — enrich/remediation latency with a GENEROUS 240s timeout
+================================================================================
+Re-ran the SAME app modules (extractZip -> makeTreeReadOnly -> buildFileIndex ->
+runClaudeEnrichment / runClaudeRemediation) over the SAME real findings, but with an
+injected long-timeout invoke (240 s) to see what Claude does when NOT cut off:
+
+  CALL A (enrich+logic):
+    wall-clock .................... 206,538 ms  (~207 s; app cap claudeTimeoutMs = 90,000)
+    enrich.ok ..................... true
+    enrich.toolRun ................ claude-cli, mode "enrich+logic", findingCount 3
+    findings enrichedByClaude=true  21   (all 18 scanner findings enriched + 3 new)
+    findings sourceTool=claude-cli  3    (real logic flaws the pattern scanners MISS):
+       - HIGH   logic-flaw  server.js:15  "No authentication or authorization on any
+                                           route, including RCE sinks"        (conf high)
+       - MEDIUM logic-flaw  server.js:31  "AWS access key ID disclosed via
+                                           unauthenticated /whoami endpoint"  (conf high)
+       - LOW    logic-flaw  server.js:34  "Fragment of AWS secret access key written
+                                           to startup logs"                   (conf high)
+    sample enrichment (Stripe token finding): real, high-quality Claude prose +
+      concrete rotation/git-history-purge remediation.
+
+  CALL B (remediation authoring):
+    wall-clock .................... 217,747 ms  (~218 s)
+    ok / markdown authored ........ true / 16,816 bytes of real AI prose
+    (numbered, specific: `git filter-repo`, key-rotation UI paths, CWE/Stripe refs)
+
+  A + B combined ~424 s; app budget = 90 s/call + 180 s/scan.
+
+CONCLUSION: this is NEITHER "the model judiciously adding nothing" NOR the login bug.
+Given time, Claude delivers exactly the core product value — 21 enrichments, 3 new
+logic-flaw findings, and a superior AI-authored remediation. The ONLY thing blocking
+it on a real scan is the 90 s per-call / 180 s per-scan timeout being far too small
+for the CLI's default Opus 4.8[1m] model. -> GAP, filed as BUG-009 (HIGH).
+
+================================================================================
+4. ENV-SECURITY INVARIANT (T2) STILL HOLDS — the fix only widened by 2 usernames  -> PASS
+================================================================================
+The allowlist widened, so the critical check: no secret/API key can reach a child.
+
+(a) config level (env-leak-probe.txt): set ANTHROPIC_API_KEY + AWS_SECRET_ACCESS_KEY
+    + GITHUB_TOKEN + MY_RANDOM_TOKEN in the PARENT env, then built config.MINIMAL_ENV
+    and spawned a REAL child (`env`) through the hardened wrapper:
+      config.MINIMAL_ENV keys .......... ["HOME","LOGNAME","PATH","USER"]
+      canaries in the MINIMAL_ENV object []
+      canaries the spawned child saw ... []   (child env = only HOME/LOGNAME/PATH/USER)
+    -> HOLDS: ANTHROPIC_API_KEY and every arbitrary secret are stripped; only the two
+      non-sensitive username vars were added.
+(b) unit level: config-minimal-env.test.ts (4/4 GREEN, see 5) asserts USER/LOGNAME
+    included when present, omitted when absent, ANTHROPIC_API_KEY + AWS_SECRET_ACCESS_KEY
+    + arbitrary token excluded by KEY and by VALUE, and no key outside the 5-var allowlist.
+(c) the subprocess wrapper also correctly REFUSES a non-bare-binary path
+    ("/usr/bin/env" -> SubprocessError invalid_command) — argv hardening intact.
+
+================================================================================
+5. REGRESSION — T6 / config / env suites
+================================================================================
+Executed green this session (real binaries present):
+  config-minimal-env.test.ts ... 4/4  PASS  (BUG-008 allowlist; the fix's own test)
+  subprocess.test.ts ........... 8/8  PASS  (MINIMAL_ENV strip + process-group SIGKILL)
+  claude.test.ts ............... 42/42 PASS (8.4 injection defenses, graceful
+                                            degradation, parse contract, <=3 CLI calls)
+  ---------------------------------------------------------------
+  Subtotal ..................... 54/54 green
+
+NOTE on claude.qa.test.ts + qa-t2.test.ts (the two suites whose allowlist assertions
+the fix ADJUSTED): could not be run to completion in THIS session due to a
+vitest/esbuild worker-contention pathology (accumulated orphaned vitest workers made
+`vitest run` stall at the esbuild collection step, intermittently, even for the
+known-good config file). Their fix-touched assertions are, however, INDEPENDENTLY
+verified green here:
+  - qa-t2 TC-18 (MINIMAL_ENV allowlist = {PATH,HOME,USER,LOGNAME,LANG}, ANTHROPIC_API_KEY
+    stripped) == config-minimal-env.test.ts (4/4) + the live env-leak probe (4a).
+  - claude.qa TC-04 (8.4 fencing / MINIMAL_ENV) == claude.test.ts (42/42) + the live
+    isolation probe which drove the REAL nonce-fenced enrich prompt through a REAL
+    `claude` (injectionDetected correctly false on the non-adversarial sample).
+
+================================================================================
+6. 8.4 PROMPT-INJECTION DEFENSES — intact (spot-check)  -> PASS
+================================================================================
+The fix touches config.ts ONLY; prompts.ts / parse.ts / redact.ts are unchanged.
+  - claude.test.ts 8.4 block green (42/42): nonce-fenced UNTRUSTED_* blocks,
+    sanitizeUntrusted() neutralizes forged closers + raw nonce, imperative injection ->
+    misconfiguration finding, per-entry zod drop, confidence cap.
+  - Live isolation probe (3): the REAL buildEnrichPrompt (with a crypto nonce and
+    UNTRUSTED_CODE/SCANNER_FINDINGS fences) was sent to a REAL `claude -p`; the parse
+    seam validated + merged the response, injectionDetected=false (correct — the sample
+    carries no model-directed content). The 8.4 machinery is unaffected by the env change.
+
+================================================================================
+IMPACT / ROUTING
+================================================================================
+The scanner half of the hybrid product is fully correct and non-degraded (18 real
+findings, degraded=false, host-path/secret invariants intact — carried over from the
+T5 re-verify). The AI half — enrichment, logic-flaw newFindings, and the AI-authored
+remediation guide (a headline PRD goal) — is STILL a no-op on every real scan, now
+because of timeouts rather than the login bug. degraded stays false (a zero-finding
+claude toolRun/skip is recorded, not a required-tool skip), which continues to MASK
+the failure in the UI.
+
+BUG-008: env fix CORRECT and login VERIFIED — RETAIN it. Not closed as VERIFIED
+  because its reported symptom ("AI enrichment + AI remediation silently no-op on
+  EVERY real scan") persists.
+BUG-009 (HIGH, NEW): raise claudeTimeoutMs / MAX_SCAN_MS to fit a real enrich+remediation
+  pass (A ~207 s + B ~218 s observed) AND/OR pin a faster model for the CLI calls (e.g.
+  --model sonnet/haiku) AND/OR run A+B within the global budget; consider degraded=true
+  (or a note) when a wanted+available Claude step returns errored/timeout so the failure
+  is not masked. Route to the T6/Claude-integration owner.
+================================================================================

@@ -1,0 +1,113 @@
+{
+  "callAms": 206538,
+  "ok": true,
+  "enrichedCount": 21,
+  "newFromClaude": 3,
+  "sampleEnriched": [
+    {
+      "id": "a8872e00483b28f7",
+      "severity": "critical",
+      "category": "secret",
+      "file": "vulnerable-app/config/secrets.env",
+      "line": 5,
+      "endLine": 5,
+      "sourceTool": "gitleaks",
+      "ruleId": "stripe-access-token",
+      "title": "Found a Stripe Access Token, posing a risk to payment processing services and sensitive financial data.",
+      "description": "A hardcoded Stripe access token is committed in config/secrets.env (line 5). Anyone with repository or git-history access can call the Stripe API with it to access payment and financial data. Committed secrets persist in history even after the line is deleted.",
+      "remediation": "Immediately revoke/rotate the token in the Stripe dashboard. Remove secrets.env from the repo, add it to .gitignore, and load secrets from environment variables or a secret manager (Vault, AWS Secrets Manager). Purge the value from git history with git filter-repo or BFG.",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/798.html",
+        "https://stripe.com/docs/keys#rolling-keys"
+      ],
+      "confidence": "high",
+      "enrichedByClaude": true,
+      "codeSnippet": null
+    },
+    {
+      "id": "ff9a7ae1f0c8eba8",
+      "severity": "low",
+      "category": "vulnerable-dependency",
+      "file": "vulnerable-app/package-lock.json",
+      "line": null,
+      "sourceTool": "osv-scanner",
+      "ruleId": "GHSA-qw6h-vgh9-j6wx",
+      "title": "express@4.16.0: express vulnerable to XSS via response.redirect()",
+      "description": "express 4.16.0 is affected by GHSA-qw6h-vgh9-j6wx: untrusted input passed to response.redirect() may lead to XSS. Exploitation is conditional and requires attacker-controlled redirect input plus user interaction.",
+      "remediation": "Upgrade express to >= 4.20.0 and regenerate package-lock.json. Additionally, validate any redirect target against an explicit allowlist.",
+      "references": [
+        "https://github.com/expressjs/express/security/advisories/GHSA-qw6h-vgh9-j6wx",
+        "https://nvd.nist.gov/vuln/detail/CVE-2024-43796",
+        "https://github.com/expressjs/express/commit/54271f69b511fea198471e6ff3400ab805d6b553",
+        "https://github.com/expressjs/express",
+        "https://github.com/advisories/GHSA-qw6h-vgh9-j6wx",
+        "https://cwe.mitre.org/data/definitions/79.html"
+      ],
+      "confidence": "high",
+      "enrichedByClaude": true
+    }
+  ],
+  "sampleNew": [
+    {
+      "id": "488daa6410e6faf9",
+      "severity": "high",
+      "category": "logic-flaw",
+      "file": "vulnerable-app/src/server.js",
+      "line": 15,
+      "endLine": null,
+      "sourceTool": "claude-cli",
+      "ruleId": null,
+      "title": "No authentication or authorization on any route, including RCE sinks",
+      "description": "None of the routes (/ping, /calc, /whoami) enforce authentication or authorization. Combined with the shell-exec sink in /ping and the eval sink in /calc, any anonymous client can trigger OS command execution and arbitrary code execution. This broken-access-control design flaw is not modeled by the pattern scanners, which only flag the injection sinks in isolation.",
+      "remediation": "Add authentication middleware (session/JWT/API key) and per-route authorization checks with deny-by-default. Remove or tightly restrict privileged operations and run the service under a least-privilege account.",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/306.html",
+        "https://cwe.mitre.org/data/definitions/862.html",
+        "https://owasp.org/Top10/A01_2021-Broken_Access_Control/"
+      ],
+      "confidence": "high",
+      "enrichedByClaude": true,
+      "codeSnippet": null
+    },
+    {
+      "id": "07d661cbf8c6b12c",
+      "severity": "medium",
+      "category": "logic-flaw",
+      "file": "vulnerable-app/src/server.js",
+      "line": 31,
+      "endLine": null,
+      "sourceTool": "claude-cli",
+      "ruleId": null,
+      "title": "AWS access key ID disclosed via unauthenticated /whoami endpoint",
+      "description": "GET /whoami returns the hardcoded AWS access key ID in its JSON response to any unauthenticated caller (server.js:31). Returning cloud credential material through a public API leaks the identifier half of a key pair and aids credential enumeration; the same key is hardcoded in source, so its secret half is also at risk. This is a design-level sensitive-data-exposure issue distinct from the SAST secret finding.",
+      "remediation": "Never return credentials or key identifiers in API responses. Remove the key from source, load it from a secret manager, and gate the endpoint behind authentication/authorization.",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/200.html",
+        "https://cwe.mitre.org/data/definitions/798.html",
+        "https://owasp.org/Top10/A01_2021-Broken_Access_Control/"
+      ],
+      "confidence": "high",
+      "enrichedByClaude": true,
+      "codeSnippet": null
+    },
+    {
+      "id": "107746995578d620",
+      "severity": "low",
+      "category": "logic-flaw",
+      "file": "vulnerable-app/src/server.js",
+      "line": 34,
+      "endLine": null,
+      "sourceTool": "claude-cli",
+      "ruleId": null,
+      "title": "Fragment of AWS secret access key written to startup logs",
+      "description": "At startup the app logs the first characters of the AWS secret access key (server.js:34). Writing any portion of a secret to stdout/log aggregation risks leaking sensitive material to logging systems and lowers the value's effective entropy.",
+      "remediation": "Do not log secrets or fragments of them. Remove the interpolation; if a startup marker is needed, log a non-sensitive constant.",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/532.html"
+      ],
+      "confidence": "high",
+      "enrichedByClaude": true,
+      "codeSnippet": null
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+HTTP/1.1 200 OK
+content-type: text/markdown; charset=utf-8
+content-disposition: attachment; filename="remediation-b4be0eb6-84ee-42e9-bbf6-d7f8e37aeab9.md"
+content-length: 22885
+Date: Sat, 04 Jul 2026 23:13:58 GMT
+Connection: keep-alive
+Keep-Alive: timeout=72
+

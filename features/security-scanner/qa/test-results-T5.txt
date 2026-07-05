@@ -1,0 +1,118 @@
+================================================================
+ QA EVIDENCE — T5 (Scanner layer SEAM 1 + Normalization SEAM 3)
+ Commit under test: 4d9c301
+ Date: 2026-07-04T19:43:42Z
+ Contract source: SPEC §7 / §7.2 / §7.3 / §5 / §4.6 / §4.8 / §11
+================================================================
+
+--- (1) Scanner-binary availability on this machine (designed-for no-install case) ---
+  semgrep        ABSENT
+  osv-scanner    ABSENT
+  gitleaks       ABSENT
+  trivy          ABSENT
+  pip-audit      ABSENT
+  npm            FOUND (/opt/homebrew/bin/npm)
+  claude         ABSENT
+  => Required scanners (semgrep/osv-scanner/gitleaks) ABSENT; suite proves the code
+     via captured JSON fixtures + fake scanners + static source audit.
+
+--- (2) Strict typecheck: npx tsc --noEmit ---
+  TSC_EXIT=0 (0 = clean, strict ESM, incl. T5 source + QA test)
+
+--- (3) T5-scoped test run: QA suite (49) + dev normalize suite (32) ---
+
+ RUN  v2.1.9 /Users/divijpatel/Desktop/agent-team/app
+
+ ✓ test/normalize.test.ts > semgrep normalizer > maps every result to a Finding
+ ✓ test/normalize.test.ts > semgrep normalizer > bumps an ERROR injection rule to critical, WARNING to medium
+ ✓ test/normalize.test.ts > semgrep normalizer > rewrites host-absolute paths to archive-relative (no host path leaks)
+ ✓ test/normalize.test.ts > semgrep normalizer > captures line/endLine, category, references, snippet
+ ✓ test/normalize.test.ts > semgrep normalizer > produces a stable id (same input → same fingerprint)
+ ✓ test/normalize.test.ts > osv normalizer > normalizes each vulnerability with the lockfile path
+ ✓ test/normalize.test.ts > osv normalizer > bands severity from database_specific vocab and CVSS score
+ ✓ test/normalize.test.ts > osv normalizer > derives an upgrade remediation from the fixed version
+ ✓ test/normalize.test.ts > osv normalizer > merges advisory + CVE references
+ ✓ test/normalize.test.ts > gitleaks normalizer > marks findings as secrets and bands high-value keys as critical
+ ✓ test/normalize.test.ts > gitleaks normalizer > NEVER leaks the secret value (redaction)
+ ✓ test/normalize.test.ts > trivy normalizer > maps vuln, misconfig and secret classes to the right categories
+ ✓ test/normalize.test.ts > trivy normalizer > never leaks the matched secret value
+ ✓ test/normalize.test.ts > npm-audit normalizer > maps an advisory to a dependency finding with a fix version
+ ✓ test/normalize.test.ts > pip-audit normalizer > maps a vuln and skips clean deps
+ ✓ test/normalize.test.ts > cross-tool dedupe > collapses the same CVE from OSV and Trivy, taking max severity and union of sources
+ ✓ test/normalize.test.ts > cross-tool dedupe > leaves a single-source finding without a sources[] array
+ ✓ test/normalize.test.ts > severity + path helpers > bands CVSS scores
+ ✓ test/normalize.test.ts > severity + path helpers > maxSeverity returns the more severe
+ ✓ test/normalize.test.ts > severity + path helpers > semgrep ERROR without critical metadata stays high
+ ✓ test/normalize.test.ts > severity + path helpers > toArchiveRelative never returns a host path and collapses escapes to a basename
+ ✓ test/normalize.test.ts > severity + path helpers > fingerprint is deterministic and content-sensitive
+ ✓ test/normalize.test.ts > selectScanners > includes JS-applicable + agnostic scanners for a JS project, excludes pip-audit
+ ✓ test/normalize.test.ts > selectScanners > includes pip-audit for a Python project, excludes npm-audit
+ ✓ test/normalize.test.ts > selectScanners > selects only language-agnostic scanners when nothing is detected
+ ✓ test/normalize.test.ts > runScanners isolation (fake scanners, no binaries needed) > runs available scanners and records findings
+ ✓ test/normalize.test.ts > runScanners isolation (fake scanners, no binaries needed) > records an unavailable scanner as not_installed
+ ✓ test/normalize.test.ts > runScanners isolation (fake scanners, no binaries needed) > isolates a throwing scanner as errored and a timing-out one as timed_out — never fails the scan
+ ✓ test/normalize.test.ts > runScanners isolation (fake scanners, no binaries needed) > records a not_applicable skip both from language filtering and from a run-time skip
+ ✓ test/normalize.test.ts > runScanners isolation (fake scanners, no binaries needed) > throws NO_SCANNERS_AVAILABLE (503) when the applicable set is entirely unavailable
+ ✓ test/normalize.test.ts > runScanners isolation (fake scanners, no binaries needed) > dedupes findings across tools in the aggregate output
+ ✓ test/scanners.qa.test.ts > Area A — normalizers over captured fixtures > TC-A01 semgrep maps every result with the §7.3 field shape
+ ✓ test/scanners.qa.test.ts > Area A — normalizers over captured fixtures > TC-A02 semgrep ERROR → high (no critical metadata)
+ ✓ test/scanners.qa.test.ts > Area A — normalizers over captured fixtures > TC-A03 semgrep WARNING → medium
+ ✓ test/scanners.qa.test.ts > Area A — normalizers over captured fixtures > TC-A04 semgrep INFO → low
+ ✓ test/scanners.qa.test.ts > Area A — normalizers over captured fixtures > TC-A05 semgrep injection/secret metadata bumps ERROR → critical
+ ✓ test/scanners.qa.test.ts > Area A — normalizers over captured fixtures > TC-A06 semgrep merges references from metadata (cwe/owasp/refs)
+ ✓ test/scanners.qa.test.ts > Area A — normalizers over captured fixtures > TC-A07 OSV → vulnerable-dependency with lockfile path + upgrade remediation
+ ✓ test/scanners.qa.test.ts > Area A — normalizers over captured fixtures > TC-A08 OSV/CVSS → banded severity (db vocab CRITICAL; CVSS 5.6 → medium)
+ ✓ test/scanners.qa.test.ts > Area A — normalizers over captured fixtures > TC-A09 Trivy vuln class → vulnerable-dependency
+ ✓ test/scanners.qa.test.ts > Area A — normalizers over captured fixtures > TC-A10 Trivy misconfig class → misconfiguration category
+ ✓ test/scanners.qa.test.ts > Area A — normalizers over captured fixtures > TC-A11 gitleaks → secret category, file/line set
+ ✓ test/scanners.qa.test.ts > Area A — normalizers over captured fixtures > TC-A12 gitleaks severity high/critical (never below high)
+ ✓ test/scanners.qa.test.ts > Area A — normalizers over captured fixtures > TC-A13 npm-audit → dependency finding with fix version
+ ✓ test/scanners.qa.test.ts > Area A — normalizers over captured fixtures > TC-A14 pip-audit → dependency finding; clean deps skipped
+ ✓ test/scanners.qa.test.ts > Area A — normalizers over captured fixtures > TC-A15 category fallback never crashes on metadata-less semgrep result
+ ✓ test/scanners.qa.test.ts > Area B — no host-path / secret leaks (SPEC §7.3/§11.2/§4.8) > TC-B01 every tool rewrites paths archive-relative; no host path leaks
+ ✓ test/scanners.qa.test.ts > Area B — no host-path / secret leaks (SPEC §7.3/§11.2/§4.8) > TC-B02 gitleaks NEVER embeds the raw secret; codeSnippet null
+ ✓ test/scanners.qa.test.ts > Area B — no host-path / secret leaks (SPEC §7.3/§11.2/§4.8) > TC-B03 trivy secret-class NEVER embeds the raw secret; codeSnippet null
+ ✓ test/scanners.qa.test.ts > Area B — no host-path / secret leaks (SPEC §7.3/§11.2/§4.8) > TC-B04 central path rewrite: absolute-outside-root collapses to basename
+ ✓ test/scanners.qa.test.ts > Area B — no host-path / secret leaks (SPEC §7.3/§11.2/§4.8) > TC-B05 description preserved as plain data (not interpreted)
+ ✓ test/scanners.qa.test.ts > Area C — cross-tool dedupe (SPEC §7.3) > TC-C01..C04 same CVE from OSV+Trivy → one finding, max sev, refs+sources union
+ ✓ test/scanners.qa.test.ts > Area C — cross-tool dedupe (SPEC §7.3) > TC-C05 distinct findings (differing ruleId/file/line) are NOT merged
+ ✓ test/scanners.qa.test.ts > Area C — cross-tool dedupe (SPEC §7.3) > TC-C06 fingerprint is deterministic and content-sensitive
+ ✓ test/scanners.qa.test.ts > Area D — selectScanners + run.ts isolation > TC-D01 selectScanners(JS) excludes pip-audit, includes agnostic gitleaks
+ ✓ test/scanners.qa.test.ts > Area D — selectScanners + run.ts isolation > TC-D02 selectScanners(no detection) keeps only language-agnostic (*) scanners
+ ✓ test/scanners.qa.test.ts > Area D — selectScanners + run.ts isolation > TC-D03 selectScanners(Python) includes pip-audit, excludes npm-audit
+ ✓ test/scanners.qa.test.ts > Area D — selectScanners + run.ts isolation > TC-D04 unavailable tool → toolsSkipped not_installed, run does not fail
+ ✓ test/scanners.qa.test.ts > Area D — selectScanners + run.ts isolation > TC-D05 throwing scanner → errored; others still run
+ ✓ test/scanners.qa.test.ts > Area D — selectScanners + run.ts isolation > TC-D06 timing-out scanner → timed_out (never fails scan)
+ ✓ test/scanners.qa.test.ts > Area D — selectScanners + run.ts isolation > TC-D07 run-time not_applicable skip is recorded, run continues
+ ✓ test/scanners.qa.test.ts > Area D — selectScanners + run.ts isolation > TC-D08 empty applicable+available set → NO_SCANNERS_AVAILABLE (503)
+ ✓ test/normalize.test.ts > runScanners isolation (fake scanners, no binaries needed) > respects concurrency: never more than the limit run at once
+ ✓ test/scanners.qa.test.ts > Area D — selectScanners + run.ts isolation > TC-D09 bounded parallelism never exceeds the concurrency cap
+ ✓ test/scanners.qa.test.ts > Area D — selectScanners + run.ts isolation > TC-D10 successful scanners populate toolsRun + aggregated findings
+ ✓ test/scanners.qa.test.ts > Area D — selectScanners + run.ts isolation > TC-D11 aggregated findings are cross-tool deduped by run.ts
+ ✓ test/scanners.qa.test.ts > Area D — selectScanners + run.ts isolation > TC-D12 one failing tool never drops another's findings
+ ✓ test/scanners.qa.test.ts > Area D — selectScanners + run.ts isolation > TC-D13 non-zero exit + valid JSON is treated as success (wrapper + parser)
+ ✓ test/scanners.qa.test.ts > Area E — /api/tools shape + registry-sourced availability > TC-E01/E02/E03 §4.6 shape unchanged; scanners from registry; required flags correct
+ ✓ test/scanners.qa.test.ts > Area E — /api/tools shape + registry-sourced availability > TC-E04 availability is honest w/o binaries (required set absent → false, version null)
+ ✓ test/scanners.qa.test.ts > Area E — /api/tools shape + registry-sourced availability > TC-E05 limits match config single-source values (§11.3)
+ ✓ test/scanners.qa.test.ts > Area E — /api/tools shape + registry-sourced availability > TC-E01(route) GET /api/tools returns the §4.6 shape end-to-end
+ ✓ test/scanners.qa.test.ts > Area F — static offline/read-only adapter audit > TC-F01/F10/F11 all adapters spawn via the hardened wrapper; zero raw exec/install/eval
+ ✓ test/scanners.qa.test.ts > Area F — static offline/read-only adapter audit > TC-F09 every adapter runs with cwd = scratchDir (never inside root)
+ ✓ test/scanners.qa.test.ts > Area F — static offline/read-only adapter audit > TC-F02/F03 Semgrep: exact offline flags + LOCAL rule packs, never a p/ registry pack
+ ✓ test/scanners.qa.test.ts > Area F — static offline/read-only adapter audit > TC-F04 OSV: JSON lockfile scan, no install
+ ✓ test/scanners.qa.test.ts > Area F — static offline/read-only adapter audit > TC-F05 gitleaks: --no-git + --redact + json report + exit-code 0
+ ✓ test/scanners.qa.test.ts > Area F — static offline/read-only adapter audit > TC-F06 Trivy: fs mode fully offline, no DB update
+ ✓ test/scanners.qa.test.ts > Area F — static offline/read-only adapter audit > TC-F07 npm audit: --package-lock-only in a scratch copy, never installs
+ ✓ test/scanners.qa.test.ts > Area F — static offline/read-only adapter audit > TC-F08 pip-audit: --no-deps, JSON
+ ✓ test/scanners.qa.test.ts > Area F — static offline/read-only adapter audit > TC-F12 severity/vocab helpers cover the contract vocab
+
+ Test Files  2 passed (2)
+      Tests  81 passed (81)
+   Start at  01:13:44
+   Duration  1.06s (transform 119ms, setup 0ms, collect 278ms, tests 803ms, environment 0ms, prepare 85ms)
+
+
+--- (4) Note on full-suite run ---
+  Full 'npx vitest run' = 202/203. The single failure is in test/detect.qa.test.ts
+  (a T4 file) with 'EMFILE: too many open files' while it writes 20,010 files
+  concurrently to force the maxFiles cap — an environmental resource flake in the
+  T4 harness, ZERO references to T5/scanner/normalize. Not a T5 regression.

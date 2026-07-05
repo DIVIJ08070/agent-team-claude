@@ -1,0 +1,16 @@
+=== CONTEXT ===
+codeIncluded: false | context files: 0 | findingsJson len: 13777
+enrich prompt length: 16141 chars
+=== RAW CLAUDE ENVELOPE (call A) — took 1925 ms ===
+{"type":"result","subtype":"success","is_error":true,"api_error_status":null,"duration_ms":68,"duration_api_ms":0,"num_turns":1,"result":"Not logged in · Please run /login","stop_reason":"stop_sequence","session_id":"8dd46456-705f-44dd-8aa0-7041e09ccc82","total_cost_usd":0,"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0,"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":0},"inference_geo":"","iterations":[],"speed":"standard"},"modelUsage":{},"permission_denials":[],"terminal_reason":"completed","fast_mode_state":"off","uuid":"20288565-3f12-4cd8-8a8d-76c45c122ead"}
+
+--- (envelope length: 746 ) ---
+=== PARSE PIPELINE (call A) ===
+extractAssistantText ->  NULL
+extractJsonBlock ->  NULL
+parseEnrichResponse ->  NULL (=> ok:false, findingCount 0)
+
+=== RAW CLAUDE ENVELOPE (call B remediation) — took 914 ms ===
+{"type":"result","subtype":"success","is_error":true,"api_error_status":null,"duration_ms":58,"duration_api_ms":0,"num_turns":1,"result":"Not logged in · Please run /login","stop_reason":"stop_sequence","session_id":"37fdedb6-52ae-4f97-8388-24429af99b99","total_cost_usd":0,"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0,"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":0},"inference_geo":"","iterations":[],"speed":"standard"},"modelUsage":{},"permission_denials":[],"terminal_reason":"completed","fast_mode_state":"off","uuid":"5716c9fa-26c8-445b-bd44-84c93cbc9d7e"}
+
+parseRemediationResponse ->  NULL (=> template body)

@@ -1,0 +1,27 @@
+extracted: 4 files; 2849 bytes; index size: undefined
+scanner findings fed to enrichment: 18
+
+=== CALL A (enrich+logic) with 240s timeout — measuring real latency ===
+call A wall-clock: 206538 ms  (app cap is claudeTimeoutMs=90000)
+enrich.ok: true
+enrich.toolRun: {"tool":"claude-cli","version":"2.1.201","mode":"enrich+logic","durationMs":206537,"findingCount":3}
+enrich.toolSkipped: undefined
+injectionDetected: false
+findings enrichedByClaude=true: 21
+findings sourceTool=claude-cli (new logic flaws): 3
+VERDICT call A: EXCEEDS the 90s app cap by 117s → real scan cuts it off (timeout gap) | enrichment produced: YES (real AI content)
+
+=== CALL B (remediation authoring) with 240s timeout ===
+call B wall-clock: 217747 ms
+call B ok (markdown authored): true
+call B markdown length: 16776
+first 500 chars of AI body:
+ ## Critical
+
+### Hardcoded Stripe access token committed in `config/secrets.env`
+**What's wrong:** A live Stripe access token is committed at `vulnerable-app/config/secrets.env:5` (detected by gitleaks). Anyone with repository or git-history access can call the Stripe API as your account to read payment and financial data. Because it lives in version control, deleting the line does not remove it — the value persists in history.
+
+**What to change:**
+1. Immediately revoke/rotate the token in the S
+
+SUMMARY: A+B combined would need ~ 424 s; app budget: 90s/call, 180s/scan.

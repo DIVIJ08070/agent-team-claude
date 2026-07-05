@@ -1,0 +1,88 @@
+===============================================================================
+ T6 — Claude Code CLI integration — QA BACKEND executed results
+ Feature: security-scanner   Commit under test: b20ae49
+ Date: 2026-07-05   Runner: Vitest 2.1.9   Node: v23.6.1
+ Suites: app/test/claude.qa.test.ts (independent QA, 47 tests = 42 SPEC-derived
+         TC-01..TC-42 + 5 sub-variants 04b/15b/17b/22b/32b)
+         app/test/claude.test.ts   (dev suite, cross-check, 42 tests)
+ RESULT: 47/47 QA green + 42/42 dev green + tsc exit 0. 0 bugs.
+===============================================================================
+
+### ENV NOTE — real host `claude` availability probe (allowed) ###
+$ which claude / claude --version:
+claude not found
+  -> claude NOT on PATH (binary absent on this host)
+  => The mocked-ABSENT path is therefore also the LIVE path here. The QA suite
+     is fully mock-driven (runSubprocess wrapper mocked; enrich deps injected);
+     NO real 'claude -p' enrichment call is ever spawned.
+
+### TYPECHECK — tsc --noEmit (strict, whole app) ###
+  -> tsc exit 0 (clean)
+
+### INDEPENDENT QA SUITE — test/claude.qa.test.ts (verbose) ###
+
+ RUN  v2.1.9 /Users/divijpatel/Desktop/agent-team/app
+
+ ✓ test/claude.qa.test.ts > A · CLI-only, no API key > TC-01: invocation spawns the bare `claude` host binary
+ ✓ test/claude.qa.test.ts > A · CLI-only, no API key > TC-02: exact least-privilege argv (order + tokens)
+ ✓ test/claude.qa.test.ts > A · CLI-only, no API key > TC-03: prompt goes on STDIN, never as an argv element
+ ✓ test/claude.qa.test.ts > A · CLI-only, no API key > TC-04: MINIMAL_ENV strips ANTHROPIC_API_KEY (allowlist ⊆ {PATH,HOME,LANG})
+ ✓ test/claude.qa.test.ts > A · CLI-only, no API key > TC-04b: key is stripped even when present in the parent env at build time
+ ✓ test/claude.qa.test.ts > A · CLI-only, no API key > TC-05: MINIMAL_ENV preserves HOME (so the CLI finds its login)
+ ✓ test/claude.qa.test.ts > A · CLI-only, no API key > TC-06: timeout, maxBuffer and AbortSignal are threaded through
+ ✓ test/claude.qa.test.ts > A · CLI-only, no API key > TC-07: NO Anthropic HTTP API / SDK / raw child_process anywhere in server/claude/
+ ✓ test/claude.qa.test.ts > A · CLI-only, no API key > TC-08: no ANTHROPIC_API_KEY is ever read/depended-on in server/claude/
+ ✓ test/claude.qa.test.ts > B · §8.4 prompt-injection resistance > TC-09: untrusted code sits in a nonce-fenced UNTRUSTED_CODE block
+ ✓ test/claude.qa.test.ts > B · §8.4 prompt-injection resistance > TC-10: scanner findings sit in a nonce-fenced SCANNER_FINDINGS block
+ ✓ test/claude.qa.test.ts > B · §8.4 prompt-injection resistance > TC-11: per-scan nonce is random, high-entropy, and differs across scans
+ ✓ test/claude.qa.test.ts > B · §8.4 prompt-injection resistance > TC-12: forged CLOSING sentinel in source is neutralized — exactly one legit closer survives
+ ✓ test/claude.qa.test.ts > B · §8.4 prompt-injection resistance > TC-13: raw per-scan nonce embedded in source is stripped (fence cannot be reconstructed)
+ ✓ test/claude.qa.test.ts > B · §8.4 prompt-injection resistance > TC-14: full adversarial payload — injection text stays inert DATA inside the intact block
+ ✓ test/claude.qa.test.ts > B · §8.4 prompt-injection resistance > TC-15: prompt instructs the model to REPORT injection as a `misconfiguration` finding
+ ✓ test/claude.qa.test.ts > B · §8.4 prompt-injection resistance > TC-15b: a model-returned injection finding surfaces as misconfiguration + injectionDetected
+ ✓ test/claude.qa.test.ts > B · §8.4 prompt-injection resistance > TC-16: fixed first-party instruction block is present and authoritative
+ ✓ test/claude.qa.test.ts > B · §8.4 prompt-injection resistance > TC-17: adversarial text in the FINDINGS block is sanitized too (defense not code-only)
+ ✓ test/claude.qa.test.ts > B · §8.4 prompt-injection resistance > TC-17b: remediation prompt also nonce-fences the FINAL_FINDINGS block + sanitizes
+ ✓ test/claude.qa.test.ts > C · parse.ts hardening > TC-18: one malformed enrichment is dropped; the valid one still applies
+ ✓ test/claude.qa.test.ts > C · parse.ts hardening > TC-19: one malformed newFinding is dropped; the valid one is appended
+ ✓ test/claude.qa.test.ts > C · parse.ts hardening > TC-20: an enrichment id matching no existing finding is silently dropped
+ ✓ test/claude.qa.test.ts > C · parse.ts hardening > TC-21: a wholly unparseable response contributes nothing; scanner findings stand
+ ✓ test/claude.qa.test.ts > C · parse.ts hardening > TC-22: envelope → fenced json extraction pipeline works end-to-end
+ ✓ test/claude.qa.test.ts > C · parse.ts hardening > TC-22b: remediation response parses fenced {markdown}; malformed → null
+ ✓ test/claude.qa.test.ts > C · parse.ts hardening > TC-23: unverified newFinding confidence is forced ≤ medium
+ ✓ test/claude.qa.test.ts > C · parse.ts hardening > TC-24: verified newFinding (file:line in FileIndex) may keep high confidence
+ ✓ test/claude.qa.test.ts > C · parse.ts hardening > TC-25: model output is never executed / eval'd / written to disk (static audit)
+ ✓ test/claude.qa.test.ts > C · parse.ts hardening > TC-26: merge never mutates the caller's Finding objects (frozen input survives)
+ ✓ test/claude.qa.test.ts > C · parse.ts hardening > TC-27: accepted newFinding gets claude-cli provenance + generated id
+ ✓ test/claude.qa.test.ts > C · parse.ts hardening > TC-28: applied enrichment sets enrichedByClaude + updates desc/remediation/refs
+ ✓ test/claude.qa.test.ts > D · secret redaction > TC-29: a gitleaks-flagged secret line is masked with the placeholder
+ ✓ test/claude.qa.test.ts > D · secret redaction > TC-30: whole-file redaction keeps line numbers aligned
+ ✓ test/claude.qa.test.ts > D · secret redaction > TC-31: the raw secret value never appears in the built enrichment prompt
+ ✓ test/claude.qa.test.ts > D · secret redaction > TC-32: buildClaudeContext redacts the code slice BEFORE it is embedded
+ ✓ test/claude.qa.test.ts > D · secret redaction > TC-32b: secretLocationsFromFindings only collects located secret findings
+ ✓ test/claude.qa.test.ts > E · graceful degradation > TC-33: binary missing → toolsSkipped claude-unavailable, findings unchanged, no throw
+ ✓ test/claude.qa.test.ts > E · graceful degradation > TC-34: unavailable outcome signals no enrichment (ok:false → T7 sets degraded)
+ ✓ test/claude.qa.test.ts > E · graceful degradation > TC-35: runClaudeEnrichment never throws when invoke rejects (timeout/spawn)
+ ✓ test/claude.qa.test.ts > E · graceful degradation > TC-36: runClaudeRemediation returns {markdown:null} on error and on unavailable (no throw)
+ ✓ test/claude.qa.test.ts > E · graceful degradation > TC-37: ≤2 CLI calls per scan — enrichment is ONE combined call, never per-finding
+ ✓ test/claude.qa.test.ts > E · graceful degradation > TC-38: mocked-absent availability path resolves false and never throws
+ ✓ test/claude.qa.test.ts > E · graceful degradation > TC-39: a junk (unparseable) response records a 0-finding run; scanner findings intact
+ ✓ test/claude.qa.test.ts > F · /api/tools claude entry > TC-40: claude entry is sourced from available.ts and matches §4.6 shape (available branch)
+ ✓ test/claude.qa.test.ts > F · /api/tools claude entry > TC-41: scanner entries + limits are untouched by T6 (still §4.6 shape)
+ ✓ test/claude.qa.test.ts > F · /api/tools claude entry > TC-42: with claude absent, /api/tools returns claude:{available:false,version:null}, 200, no throw
+
+ Test Files  1 passed (1)
+      Tests  47 passed (47)
+   Start at  01:43:41
+   Duration  431ms (transform 108ms, setup 0ms, collect 190ms, tests 70ms, environment 0ms, prepare 43ms)
+
+
+### DEV SUITE CROSS-CHECK — test/claude.test.ts ###
+
+ ✓ test/claude.test.ts (42 tests) 36ms
+
+ Test Files  1 passed (1)
+      Tests  42 passed (42)
+   Start at  01:43:42
+   Duration  289ms (transform 62ms, setup 0ms, collect 83ms, tests 36ms, environment 0ms, prepare 31ms)
+

@@ -1,0 +1,160 @@
+════════════════════════════════════════════════════════════════════════
+ QA EVIDENCE — T7 (Pipeline + API routes + remediation .md, end-to-end)
+ Generated: 2026-07-05 02:22:19 IST  ·  commit under test: a3789df
+ Host: darwin  ·  node v22.13.0  ·  vitest 2.1.9
+════════════════════════════════════════════════════════════════════════
+
+HOST TOOLING (CHANGED SINCE MANAGER DISPATCH — material observation):
+  The dispatch said 'NO scanner binaries, NO claude'. That is now STALE.
+  Live /api/tools probe on the booted server shows:
+    semgrep 1.168.0 (avail)  osv-scanner 2.4.0 (avail)  gitleaks 8.30.1 (avail)
+    npm-audit 11.4.2 (avail)  trivy ABSENT  pip-audit ABSENT  claude 2.1.201 (avail)
+  => full findings path verified DETERMINISTICALLY via DI fakes (env-independent);
+     real path verified as it actually runs now (see live smoke + TC-41).
+
+────────────────────────────────────────────────────────────────────────
+1) tsc --noEmit (whole project incl the QA suite)
+────────────────────────────────────────────────────────────────────────
+tsc --noEmit: EXIT 0 (clean)
+
+────────────────────────────────────────────────────────────────────────
+2) INDEPENDENT QA suite  test/qa-t7.test.ts  (TC-01..TC-43)
+────────────────────────────────────────────────────────────────────────
+
+ RUN  v2.1.9 /Users/divijpatel/Desktop/agent-team/app
+
+ ✓ test/qa-t7.test.ts > A/B — full async flow + findings path (DI: fake scanners + fake claude) > TC-01 POST /api/scan → 202 {scanId(UUID), status, createdAt(ISO)}
+ ✓ test/qa-t7.test.ts > A/B — full async flow + findings path (DI: fake scanners + fake claude) > TC-02..10 poll → done → complete §4.7 ScanResult envelope + counts
+ ✓ test/qa-t7.test.ts > A/B — full async flow + findings path (DI: fake scanners + fake claude) > TC-11 every injected scanner finding surfaces with §5 shape
+ ✓ test/qa-t7.test.ts > A/B — full async flow + findings path (DI: fake scanners + fake claude) > TC-12 Claude enrichment merged onto the matching finding id
+ ✓ test/qa-t7.test.ts > A/B — full async flow + findings path (DI: fake scanners + fake claude) > TC-13 Claude newFindings appended (sourceTool claude-cli, logic-flaw)
+ ✓ test/qa-t7.test.ts > B — scanners-only mode (DI) > TC-14 mode=scanners-only never invokes Claude; degraded-by-choice, claude skipped
+ ✓ test/qa-t7.test.ts > C — report.md AI-body path + headers + snapshot (DI) > TC-16 deterministic header line
+ ✓ test/qa-t7.test.ts > C — report.md AI-body path + headers + snapshot (DI) > TC-17 severity summary table with all 5 rows
+ ✓ test/qa-t7.test.ts > C — report.md AI-body path + headers + snapshot (DI) > TC-18 tools run / skipped lines
+ ✓ test/qa-t7.test.ts > C — report.md AI-body path + headers + snapshot (DI) > TC-19 no degraded banner when not degraded
+ ✓ test/qa-t7.test.ts > C — report.md AI-body path + headers + snapshot (DI) > TC-21 AI-body path: AI content wrapped in deterministic frame
+ ✓ test/qa-t7.test.ts > C — report.md AI-body path + headers + snapshot (DI) > TC-23 report ≡ ScanResult snapshot: refetch + re-poll does NOT re-scan
+ ✓ test/qa-t7.test.ts > C — template-only path + degraded banner (DI: claude unavailable) > TC-22 + TC-19 claude unavailable → template body well-formed + degraded banner
+ ✓ test/qa-t7.test.ts > D — mdEscape / injection-in-report safety > TC-24/25 malicious filename + title are escaped (no raw HTML / new markdown structure)
+ ✓ test/qa-t7.test.ts > D — mdEscape / injection-in-report safety > TC-26 malicious code snippet is fenced with a longer backtick run
+ ✓ test/qa-t7.test.ts > D — mdEscape / injection-in-report safety > TC-24 (HTTP e2e) served report escapes a malicious uploaded filename's finding
+ ✓ test/qa-t7.test.ts > E — error envelopes (§4.8) > TC-27 NO_FILE (400)
+ ✓ test/qa-t7.test.ts > E — error envelopes (§4.8) > TC-28 NOT_A_ZIP (415) — magic-byte check
+ ✓ test/qa-t7.test.ts > E — error envelopes (§4.8) > TC-29 UPLOAD_TOO_LARGE (413)
+ ✓ test/qa-t7.test.ts > E — error envelopes (§4.8) > TC-30 SESSION_NOT_FOUND (404) on poll for an unknown UUID
+ ✓ test/qa-t7.test.ts > E — error envelopes (§4.8) > TC-31 VALIDATION_ERROR (400) on a non-UUID id
+ ✓ test/qa-t7.test.ts > E — error envelopes (§4.8) > TC-32 REPORT_NOT_READY (409) while the job is still running
+ ✓ test/qa-t7.test.ts > E — error envelopes (§4.8) > TC-33 SESSION_NOT_FOUND (404) on report.md for an unknown UUID
+ ✓ test/qa-t7.test.ts > E — error envelopes (§4.8) > TC-34 NO_SCANNERS_AVAILABLE → terminal error, code maps to HTTP 503
+ ✓ test/qa-t7.test.ts > E — error envelopes (§4.8) > TC-35 no host-absolute path leaks in any error envelope
+ ✓ test/qa-t7.test.ts > F — ephemeral cleanup + session retention + bind > TC-36/37 workDir rm-rf'd after assembly; session (result+markdown) retained
+ ✓ test/qa-t7.test.ts > F — ephemeral cleanup + session retention + bind > TC-38 STATIC-only: a hostile postinstall / setup.py is NEVER executed
+ ✓ test/qa-t7.test.ts > F — ephemeral cleanup + session retention + bind > TC-40 server binds a loopback address only (127.0.0.1)
+ ✓ test/qa-t7.test.ts > G — real scanner path (default deps, no DI) > TC-41/42 real scanners-only scan → done, valid envelope, degraded CONSISTENT with skips, report well-formed 1876ms
+
+ Test Files  1 passed (1)
+      Tests  29 passed (29)
+   Start at  02:22:21
+   Duration  2.83s (transform 155ms, setup 0ms, collect 309ms, tests 2.31s, environment 0ms, prepare 48ms)
+
+
+────────────────────────────────────────────────────────────────────────
+3) Dev T7 suites re-run (cross-check)  pipeline.test.ts + routes.test.ts
+────────────────────────────────────────────────────────────────────────
+ ✓ test/pipeline.test.ts (7 tests) 31ms
+ ✓ test/routes.test.ts (11 tests) 203ms
+
+ Test Files  2 passed (2)
+      Tests  18 passed (18)
+   Start at  02:22:24
+   Duration  603ms (transform 174ms, setup 0ms, collect 380ms, tests 234ms, environment 0ms, prepare 88ms)
+
+
+────────────────────────────────────────────────────────────────────────
+4) STATIC no-execution audit of T7 files (SPEC §11.1 / TC-39)
+────────────────────────────────────────────────────────────────────────
+grep for child_process/exec/spawn(shell:true)/eval/vm/install across:
+  pipeline.ts scan.ts report.ts events.ts upload.ts markdown.ts index.ts
+RESULT: NONE — T7 delegates all spawns to the hardened T5/T6 subprocess wrapper (argv, shell:false).
+
+────────────────────────────────────────────────────────────────────────
+5) LIVE SMOKE — real booted server (tsx server/index.ts) on 127.0.0.1:5199
+────────────────────────────────────────────────────────────────────────
+GET /api/health -> {"ok":true}
+
+GET /api/tools (real availability probe):
+  semgrep 1.168.0 avail | osv-scanner 2.4.0 avail | gitleaks 8.30.1 avail
+  trivy ABSENT | npm-audit 11.4.2 avail | pip-audit ABSENT | claude 2.1.201 avail
+
+POST /api/scan (file=benign JS zip + mode=full) -> 202:
+  {"scanId":"bab11b68-...","status":"extracting","createdAt":"...Z"}
+
+poll GET /api/scan/:id -> terminal 'done' after ~3.5s. Real ScanResult:
+  status: done
+  toolsRun: ["osv-scanner:0","gitleaks:0","npm-audit:0","claude-cli:0"]
+  toolsSkipped: ["semgrep:errored","trivy:not_installed","pip-audit:not_applicable"]
+  summary.total: 0  degraded: true  enrichedByClaude: false
+  summary.notes: ["semgrep errored; coverage reduced","trivy not installed; some coverage limited"]
+  report.available: true  url: /api/scan/bab11b68-d769-4236-8ee6-106deef86cf8/report.md
+
+  NOTE: semgrep (REQUIRED) reported reason=errored ("produced non-JSON output")
+  even though it is installed + passes --version. T7 ISOLATED it into toolsSkipped
+  and continued -> degraded=true, still a valid report. This is graceful degradation
+  working as specified (SPEC §7.1/§11.6). The semgrep-run failure is a T5-adapter/
+  environment matter (semgrep 1.168.0 CLI/env under MINIMAL_ENV), NOT a T7 bug.
+
+GET /api/scan/:id/report.md -> 200, headers:
+  content-type: text/markdown; charset=utf-8
+  content-disposition: attachment; filename="remediation-bab11b68-...md"
+  --- body (real degraded template path, §9) ---
+  | # Security Scanner — Remediation Report
+  | _Generated 2026-07-04 · scan bab11b68 · STATIC analysis only (no code executed) · stack: Node.js, Express, React (JavaScript)_
+  | 
+  | ## Summary
+  | 
+  | | Severity | Count |
+  | |----------|-------|
+  | | Critical | 0 |
+  | | High     | 0 |
+  | | Medium   | 0 |
+  | | Low      | 0 |
+  | | Info     | 0 |
+  | 
+  | **Tools run:** osv-scanner 2.4.0, gitleaks 8.30.1, npm-audit 11.4.2, claude-cli 2.1.201.
+  | **Tools skipped:** semgrep (errored: semgrep produced non-JSON output), trivy (not installed), pip-audit (not applicable: no matching language detected).
+  | 
+  | > ⚠️ Report is DEGRADED: semgrep errored; coverage reduced; trivy not installed; some coverage limited
+  | 
+  | ## Findings
+  | 
+  | No findings were reported by the scanners that ran.
+  | 
+  | ## Methodology & limitations
+  | - Static analysis only; no dependencies were installed and no project code was executed.
+  | - Findings marked _(AI-assisted)_ are advisory and should be human-reviewed.
+  | - The report is pinned to the exact findings shown in the in-app report view.
+  host-path leak check in report: NONE
+
+LIVE error envelopes (curl):
+  NOT_A_ZIP      [415] {"error":{"code":"NOT_A_ZIP",...}}
+  NO_FILE        [400] {"error":{"code":"NO_FILE",...}}
+  VALIDATION_ERR [400] {"error":{"code":"VALIDATION_ERROR",...}}
+  SESSION_NF     [404] {"error":{"code":"SESSION_NOT_FOUND",...}} (poll)
+  REPORT (404)   [404] {"error":{"code":"SESSION_NOT_FOUND",...}} (report.md unknown id)
+
+EPHEMERAL: lingering secscan-* workDirs in os.tmpdir() after completed scan = 0
+BIND: lsof -iTCP:5199 -sTCP:LISTEN -> node TCP 127.0.0.1:5199 (loopback only, NOT 0.0.0.0)
+Server shut down cleanly; post-shutdown lingering secscan-* = 0.
+
+────────────────────────────────────────────────────────────────────────
+6) FULL-SUITE regression run (context)
+────────────────────────────────────────────────────────────────────────
+npx vitest run (whole app): 337 passed / 2 failed of 339. BOTH failures are
+OUTSIDE T7 and explained, NOT regressions caused by T7:
+  - detect.qa.test.ts:111  EMFILE (20k concurrent file writes) — known T4
+    environmental flake, pre-existing (noted by manager in Agent Log).
+  - scanners.qa.test.ts:552 TC-E04 — a T5 QA test that HARD-CODES 'semgrep/osv/
+    gitleaks genuinely not installed on this host'; that assumption is now stale
+    because the binaries were installed mid-project. Environment drift in a T5
+    test, not a code defect. All T7-scoped suites are green (29+18).

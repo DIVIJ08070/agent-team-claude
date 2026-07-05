@@ -1,0 +1,95 @@
+############################################################
+# T3 SANDBOX QA — RE-VERIFICATION (cycle 1) EXECUTED EVIDENCE
+# Scope: BUG-002 (CRC-32) + BUG-003 (over-long name) fixes @ commit 9cb74c0
+#        + full regression of all previously-passing guards.
+# date: Sun Jul  5 00:57:44 IST 2026
+# node: v23.6.1  vitest: vitest/2.1.9 darwin-arm64 node-v23.6.1
+# NOTE: T3 verified in ISOLATION (sandbox suites run directly); whole-repo
+#       tsc is currently CLEAN (T5's npmAudit.ts has since landed).
+############################################################
+
+>>> WHOLE-REPO typecheck (informational only — T3 not gated on it):
+    tsc --noEmit: CLEAN (exit 0)
+    sandbox/test-sandbox files implicated in any tsc error: 0
+
+>>> REGRESSION — NO-EXECUTION invariant re-audit (grep server/sandbox/*.ts, incl. new crc32.ts)
+--- child_process / exec / spawn / dynamic require|import / eval / vm ---
+  NONE (clean — nothing executes/requires untrusted content; crc32.ts only reads bytes)
+--- PATH / NODE_PATH / PYTHONPATH mutation ---
+  NONE (clean)
+
+>>> BUG-002 — misleading CRC comment CORRECTED (was: extractZip.ts claimed CRC verified by yauzl)
+4: * Uses `yauzl` in STREAMING, entry-by-entry mode. yauzl does NOT auto-extract:
+13: *   - `decodeStrings:false` → yauzl does NOT apply its own name validation (which
+16: *   - `validateEntrySizes:true` → yauzl verifies the decompressed byte COUNT
+18: *     stream error → `ZIP_MALFORMED`. yauzl does NOT verify the CRC-32, so we
+197:          crc.update(chunk); // CRC-32 accumulator (yauzl validates size only, not CRC)
+203:      // NOT check CRC-32; that is verified explicitly on "finish" below.)
+212:        // CRC-32 of the decompressed bytes must match the central directory
+215:          fail(new AppError("ZIP_MALFORMED", "A zip entry failed CRC-32 integrity validation."));
+
+>>> BUG-002 — native CRC-32 availability probe (which path the fix uses on this runtime)
+    zlib.crc32 native present: true (v23.6.1)  — table fallback exists for older runtimes
+
+>>> BUG-002 — standalone CRC probe: a right-sized STORE entry with a flipped content byte
+    (end-to-end proof is TC-06 / dev 'CRC-32 mismatch on a right-sized entry' in the run below)
+
+>>> TEST RUN: dev sandbox.test.ts (33) + QA sandbox.qa.test.ts (12)
+
+
+ RUN  v2.1.9 /Users/divijpatel/Desktop/agent-team/app
+
+stdout | test/sandbox.qa.test.ts > QA · over-long path fails closed with a 4xx > TC-07 a pathological 4000-char in-root name is a 4xx ZIP_MALFORMED, not INTERNAL
+[QA] over-long-name outcome: threw ZIP_MALFORMED (4xx)
+
+ ✓ test/sandbox.qa.test.ts (12 tests) 28ms
+ ✓ test/sandbox.test.ts (33 tests) 41ms
+
+ Test Files  2 passed (2)
+      Tests  45 passed (45)
+   Start at  00:57:48
+   Duration  298ms (transform 81ms, setup 0ms, collect 172ms, tests 69ms, environment 0ms, prepare 76ms)
+
+############################################################
+# QA RE-VERIFICATION ANALYSIS & VERDICT (T3 sandbox, cycle 1)
+############################################################
+
+BUG-002 (CRC-32 mismatch) — VERIFIED FIXED, executed proof:
+  [PASS] dev  "ZIP_MALFORMED — CRC-32 mismatch on a right-sized entry (BUG-002)"
+              (fixture crcTamperedZip: 1 content byte flipped after CRC; SIZE unchanged)
+  [PASS] QA   TC-06 (RE-POINTED — was asserting the pre-fix SILENT extract; now asserts
+              the fix: flipped-byte STORE entry → throws ZIP_MALFORMED, code + AppError checked)
+  [PASS] QA   TC-06b (NEW regression guard) — a VALID ~96 KB DEFLATE-compressed, multi-chunk
+              entry PASSES the CRC check and round-trips byte-exact → the new accumulator folds
+              DECOMPRESSED bytes correctly (no false-positive on real compressed archives)
+  [PASS] QA   TC-11 — SIZE mismatch (declared > actual) STILL caught → ZIP_MALFORMED (unchanged)
+  Fix wiring confirmed by read: new server/sandbox/crc32.ts (incremental IEEE CRC-32; native
+  zlib.crc32 with table fallback); extractZip.ts folds each chunk (crc.update) and compares
+  crc.digest() vs entry.crc32 on out.finish → ZIP_MALFORMED. Misleading CRC comment CORRECTED
+  (header + inline now state yauzl validates SIZE only; CRC verified explicitly). No security
+  regression: no-execution invariant re-audited clean incl. the new module (reads bytes only).
+
+BUG-003 (over-long entry name) — VERIFIED FIXED, executed proof:
+  [PASS] dev  pure guard "rejects an over-long entry name with ZIP_MALFORMED (BUG-003)"
+              (single >255 B segment AND >4096 B total path both → ZIP_MALFORMED; normal name OK)
+  [PASS] dev  extraction "over-long in-root name is a 4xx, not INTERNAL (BUG-003)" (overLongNameZip)
+  [PASS] QA   TC-07 (RE-POINTED — pre-fix logged "threw INTERNAL"; now asserts ZIP_MALFORMED
+              AND httpStatus === 422, a client 4xx not a 500). Guard fires in pathGuard
+              resolveSafeEntryPath BEFORE any write, so the ENAMETOOLONG→INTERNAL path is unreachable.
+  Length caps (255 B/seg, 4096 B/path) are filesystem-derived NAME_MAX/PATH_MAX, not §11.3 tunables.
+
+REGRESSION — all previously-confirmed guards STILL HOLD (45/45 executed, exact §4.8 codes):
+  ZIP_SLIP_DETECTED (parent/absolute/backslash/drive/NUL/empty + escape-target-never-written),
+  SYMLINK_REJECTED (all symlinks incl. inside-root; link never materialized),
+  EXTRACTED_TOO_LARGE (single + running-total + lying under-declared size caught by actual bytes),
+  COMPRESSION_RATIO_EXCEEDED (also fired correctly on an over-compressible test input — guard alive),
+  TOO_MANY_FILES, NESTING_TOO_DEEP + inner-zip-opaque-blob (no recursion),
+  benign extract correctness, read-only tree 0o500/0o400 + cleanup on locked tree,
+  workDir 0o700 under os.tmpdir() + guaranteed cleanup on success AND error,
+  host-path non-leak, limits sourced from config, NO-EXECUTION invariant (static re-audit clean).
+
+Cases: dev sandbox.test.ts 33/33 + QA sandbox.qa.test.ts 12/12 = 45/45 green.
+       27 threat-model cases from TEST_CASES-T3.md all covered; both prior deviations resolved.
+
+VERDICT: PASS. BUG-002 and BUG-003 both fixed with executed evidence; no guard regressed; the
+two fixes introduced no new failure. → T3 QA_PASSED; BUG-002 + BUG-003 → VERIFIED.

@@ -20,3 +20,6 @@ playwright-report/
 
 # OS noise
 .DS_Store
+
+# Built app — framework repo excludes it
+app/

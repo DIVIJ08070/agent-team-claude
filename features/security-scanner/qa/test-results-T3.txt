@@ -1,0 +1,87 @@
+############################################################
+# T3 SANDBOX QA — EXECUTED EVIDENCE
+# date: Sun Jul  5 00:36:09 IST 2026
+# node: v23.6.1  vitest: vitest/2.1.9 darwin-arm64 node-v23.6.1
+############################################################
+
+>>> STATIC AUDIT: no-execution invariant (grep server/sandbox/*.ts)
+--- subprocess/exec/dynamic-require/import/eval/vm ---
+NONE (clean — nothing executes/requires untrusted content)
+--- PATH/NODE_PATH/PYTHONPATH mutation ---
+NONE (clean)
+
+>>> yauzl CRC probe: does validateEntrySizes verify CRC-32?  (independent)
+    RESULT: stream END ok, 23 bytes, errored=false  → CRC NOT verified (see BUG-CRC)
+
+>>> TEST RUN: dev sandbox.test.ts + QA sandbox.qa.test.ts
+
+ RUN  v2.1.9 /Users/divijpatel/Desktop/agent-team/app
+
+stdout | test/sandbox.qa.test.ts > QA · over-long path fails closed > TC-07 a pathological 4000-char in-root name does not escape and does not crash
+[QA] over-long-name outcome: threw INTERNAL
+
+ ✓ test/sandbox.qa.test.ts (11 tests) 19ms
+ ✓ test/sandbox.test.ts (30 tests) 39ms
+
+ Test Files  2 passed (2)
+      Tests  41 passed (41)
+   Start at  00:36:10
+   Duration  343ms (transform 98ms, setup 0ms, collect 193ms, tests 58ms, environment 0ms, prepare 83ms)
+
+
+############################################################
+# QA ANALYSIS & FINDINGS (T3 sandbox)
+############################################################
+
+CONTAINMENT GUARDS — ALL HOLD (executed, exact SPEC §4.8 codes):
+  [PASS] ZIP_SLIP_DETECTED   — parent ../, absolute, backslash, drive-letter, NUL, empty
+                               + QA proof: escape target is NEVER written outside destRoot
+                               (TC-01 ../../qa-escape-marker absent; TC-02 absolute in-scratch absent)
+  [PASS] SYMLINK_REJECTED    — ALL symlink entries rejected incl. one pointing INSIDE root (TC-03);
+                               link node + target never materialized (TC-04, dev + QA)
+  [PASS] EXTRACTED_TOO_LARGE — single oversized file + running-total across files;
+                               QA proof: a LYING (under-declared) central-dir size is still caught
+                               by the ACTUAL-byte running total (TC-05)
+  [PASS] COMPRESSION_RATIO_EXCEEDED — ratio bomb (~1000:1 > 200:1 cap)
+  [PASS] TOO_MANY_FILES      — count bomb past MAX_FILES
+  [PASS] NESTING_TOO_DEEP    — depth>1 rejected; inner .zip kept as OPAQUE BLOB, never recursed
+                               (dev + QA TC-08: inner secret.txt never extracted)
+  [PASS] ZIP_MALFORMED       — garbage bytes, corrupt EOCD, and SIZE mismatch (TC-11) all → 422
+  [PASS] benign extract      — content/dir tree correct, fileCount/bytesExtracted accurate
+  [PASS] read-only tree      — dirs 0o500 / files 0o400; cleanup still succeeds on the locked
+                               tree via forceRemoveDir (QA TC-09)
+  [PASS] temp dir            — workDir 0o700 under os.tmpdir(); guaranteed cleanup on success AND error
+  [PASS] NO-EXECUTION        — static audit: zero child_process/exec/spawn/dynamic-require/import/
+                               eval/vm and zero PATH/NODE_PATH/PYTHONPATH mutation in the sandbox path
+  [PASS] limits from config  — all resource limits read config.limits; no hardcoded §11.3 numbers
+                               (only POSIX S_IFLNK + spec-fixed modes 0o500/0o400/0o700 are literal)
+  [PASS] host-path non-leak  — AppError details carry archive-relative entry name only; INTERNAL
+                               write-error message uses e.code (e.g. ENAMETOOLONG), no host path
+
+DEVIATIONS FOUND (non-containment):
+
+  [BUG · MED] CRC-32 mismatch is NOT detected → SPEC §11.2 "CRC ... mismatch → ZIP_MALFORMED" unmet.
+    Evidence: TC-06 + independent yauzl probe. yauzl `validateEntrySizes:true` validates SIZE only,
+    NOT CRC-32. A right-sized entry whose bytes were flipped after CRC computation extracts SILENTLY
+    (stream END, no error) and the corrupted bytes are written to disk. This directly contradicts the
+    in-code claim at server/sandbox/extractZip.ts:16-18 ("yauzl verifies the decompressed byte count
+    AND CRC-32 ... → ZIP_MALFORMED"), which over-states the guarantee.
+    Security impact: NONE — nothing escapes destRoot, size caps + running-total still apply, no
+    execution. It is a data-integrity / spec-conformance gap (a corrupt archive is scanned as valid
+    instead of rejected 422) plus a false in-code security comment. Fix: either compute/verify CRC-32
+    while streaming (compare against entry.crc32) and throw ZIP_MALFORMED on mismatch, or correct the
+    file-header comment and the SPEC §11.2 CRC clause to state CRC is intentionally not verified.
+
+  [BUG · LOW] Over-long in-root entry name surfaces as INTERNAL (500), not a 4xx client error.
+    Evidence: TC-07 — a 4000-char in-root name (no traversal) fails the OS write (ENAMETOOLONG) and is
+    mapped to AppError INTERNAL by streamEntryToFile's out.on("error") handler. Containment holds
+    (fails CLOSED — nothing written outside dest, no process crash, no host-path leak: message uses
+    e.code only). But a malformed/hostile CLIENT upload returns a 500 (server-fault class) rather than
+    a 4xx (e.g. ZIP_MALFORMED 422). The task brief lists over-long paths under ZIP_SLIP_DETECTED; note
+    such a name does not actually escape root, so ZIP_SLIP is semantically debatable — a name-length
+    guard in pathGuard returning ZIP_MALFORMED/ZIP_SLIP_DETECTED would give a correct 4xx. Low impact.
+
+VERDICT: FAIL — every security-critical CONTAINMENT and NO-EXECUTION guard holds with executed
+evidence, but TC-06 fails the SPEC §11.2 contract (CRC mismatch not rejected as ZIP_MALFORMED) and the
+extractor's own header comment over-claims CRC verification (MED); over-long names return 500 not 4xx
+(LOW). Cases: 41/41 tests green (behavior pinned), but 1 spec-contract case (CRC) deviates → 2 bugs.
